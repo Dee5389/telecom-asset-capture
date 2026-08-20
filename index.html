@@ -156,7 +156,7 @@
 <div id="login-screen">
   <div class="app-logo">&#x1F4E1;</div>
   <h1>Telecom Asset Capture</h1>
-  <p>Field inventory for telecom site engineers</p>
+  <p>Field inventory for telecom site auditors</p>
   <div class="login-card">
     <h2>Sign in</h2>
     <label for="login-email" style="display:block;font-size:12px;color:var(--slate-400);margin-bottom:6px;">Globe email address</label>
@@ -247,12 +247,17 @@ const CONDITIONS = [
   { id: 'good', label: 'Good Working Condition', color: 'good', icon: '✅' },
   { id: 'defective', label: 'Defective', color: 'defective', icon: '❌' },
   { id: 'powered_down', label: 'Powered Down', color: 'pending', icon: '⏸️' },
-  { id: 'nearing_eol', label: 'Nearing End of Life', color: 'review', icon: '⚠️' },
+  { id: 'nearing_eol', label: 'Aging/Due for Replacement', color: 'review', icon: '⚠️' },
   { id: 'decommissioned', label: 'Decommissioned', color: 'decommissioned', icon: '🚫' },
   { id: 'unknown', label: 'Unknown', color: 'unknown', icon: '❓' },
 ];
 
 const ASSET_CATEGORIES = ['Physical Asset', 'Software / License', 'Logical Asset', 'Underground Cable'];
+
+// Site Security Assessment options — maintained in the SecurityAssessments
+// tab of the Master Sheet by IT Admin (same live-fetch pattern as
+// EquipmentTypes/PLAIDs). Empty until that tab exists / has rows.
+let SECURITY_ASSESSMENTS = [];
 
 const BATCH_STATUSES = ['Draft', 'Submitted', 'Under Review', 'Approved', 'Returned'];
 
@@ -431,7 +436,7 @@ const App = (() => {
     state.user = { role, name, email };
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
-    document.getElementById('header-user').textContent = `${name} · ${role}`;
+    document.getElementById('header-user').textContent = `${name} · ${roleDisplayName(role)}`;
     renderNav();
     initOnlineStatus();
     updateSyncBadge();
@@ -494,14 +499,18 @@ const App = (() => {
   async function loadReferenceData() {
     try {
       if (!navigator.onLine) throw new Error('offline');
-      const [plaids, types] = await Promise.all([
+      const [plaids, types, security] = await Promise.all([
         fetch(`${API_BASE_URL}?action=plaids`).then(r => r.json()),
-        fetch(`${API_BASE_URL}?action=equipmentTypes`).then(r => r.json())
+        fetch(`${API_BASE_URL}?action=equipmentTypes`).then(r => r.json()),
+        fetch(`${API_BASE_URL}?action=getSecurityAssessments`).then(r => r.json()).catch(() => [])
       ]);
 
       if (Array.isArray(plaids) && plaids.length) {
         SAMPLE_SITES.length = 0;
-        plaids.forEach(p => SAMPLE_SITES.push({ plaid: p.plaid, name: p.name, address: p.address }));
+        plaids.forEach(p => SAMPLE_SITES.push({
+          plaid: p.plaid, name: p.name, address: p.address,
+          territory: p.territory || '', locationType: p.locationType || ''
+        }));
         SAMPLE_PLAIDS.length = 0;
         plaids.forEach(p => SAMPLE_PLAIDS.push(p.plaid));
         await DB.put('settings', { key: 'cachedSites', value: SAMPLE_SITES.slice() });
@@ -511,6 +520,12 @@ const App = (() => {
         EQUIPMENT_TYPES.length = 0;
         types.forEach(t => EQUIPMENT_TYPES.push({ id: t.id, name: t.name, icon: t.icon, desc: t.desc || '' }));
         await DB.put('settings', { key: 'cachedEquipmentTypes', value: EQUIPMENT_TYPES.slice() });
+      }
+
+      if (Array.isArray(security)) {
+        SECURITY_ASSESSMENTS.length = 0;
+        security.forEach(s => SECURITY_ASSESSMENTS.push({ id: s.id, name: s.name }));
+        await DB.put('settings', { key: 'cachedSecurityAssessments', value: SECURITY_ASSESSMENTS.slice() });
       }
     } catch (err) {
       // Offline or server unreachable — use the last cached copy, if we have one
@@ -527,8 +542,23 @@ const App = (() => {
           EQUIPMENT_TYPES.length = 0;
           cachedTypes.value.forEach(t => EQUIPMENT_TYPES.push(t));
         }
+        const cachedSecurity = await DB.get('settings', 'cachedSecurityAssessments');
+        if (cachedSecurity && cachedSecurity.value && cachedSecurity.value.length) {
+          SECURITY_ASSESSMENTS.length = 0;
+          cachedSecurity.value.forEach(s => SECURITY_ASSESSMENTS.push(s));
+        }
       } catch (e2) { /* keep the built-in defaults already in the arrays above */ }
     }
+  }
+
+  // Internal role values stay the same ('engineer', etc.) for data
+  // continuity — this only affects what's shown on screen.
+  function roleDisplayName(role) {
+    if (role === 'engineer') return 'Site Auditor';
+    if (role === 'supervisor') return 'Supervisor';
+    if (role === 'accounting') return 'Accounting';
+    if (role === 'admin') return 'IT Admin';
+    return role;
   }
 
   function defaultView(role) {
@@ -631,7 +661,7 @@ const App = (() => {
     await pullRemoteSessions();
     const sessions = await DB.getAll('sessions');
     const mySessions = sessions.filter(s => s.engineerEmail === state.user.email);
-    for (const s of mySessions) { await pullRemoteAssets(s.id); }
+    await pullRemoteAllAssets();
     const assets = await DB.getAll('assets');
     const myAssets = assets.filter(a => mySessions.some(s => s.id === a.sessionId));
     const pendingSync = myAssets.filter(a => a.syncStatus === 'pending').length;
@@ -720,6 +750,29 @@ const App = (() => {
         <label class="form-label">Site Address <span class="req">*</span></label>
         <textarea id="ms-addr" class="form-control" placeholder="Full address including street, city, region, postal code" rows="2"></textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">Territory</label>
+        <input id="ms-territory" class="form-control" placeholder="Auto-filled from PLAID" readonly style="background:var(--slate-100);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location Type</label>
+        <input id="ms-loctype" class="form-control" placeholder="Auto-filled from PLAID" readonly style="background:var(--slate-100);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Site Security Assessment</label>
+        <select id="ms-security" class="form-control">
+          <option value="">${SECURITY_ASSESSMENTS.length ? 'Select assessment…' : 'No options set yet — check with IT Admin'}</option>
+          ${SECURITY_ASSESSMENTS.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Site Engineer on Site</label>
+        <input id="ms-site-engineer" class="form-control" placeholder="Name of site engineer/personnel present">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact No.</label>
+        <input id="ms-contact-no" class="form-control" type="tel" placeholder="e.g. 0917xxxxxxx">
+      </div>
       <div style="background:var(--sky-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#0369a1;margin-bottom:8px;">
         📍 GPS and visit timestamp will be captured automatically.
       </div>
@@ -729,13 +782,15 @@ const App = (() => {
       </div>
     `);
 
-    // Auto-fill when PLAID matches known site
+    // Auto-fill when PLAID matches known site (including Territory/Location Type)
     document.getElementById('ms-plaid').addEventListener('input', () => {
       const plaid = document.getElementById('ms-plaid').value;
       const site = SAMPLE_SITES.find(s => s.plaid === plaid);
       if (site) {
         document.getElementById('ms-name').value = site.name;
         document.getElementById('ms-addr').value = site.address;
+        document.getElementById('ms-territory').value = site.territory || '';
+        document.getElementById('ms-loctype').value = site.locationType || '';
       }
     });
     document.getElementById('ms-name').addEventListener('input', () => {
@@ -744,6 +799,8 @@ const App = (() => {
       if (site) {
         document.getElementById('ms-plaid').value = site.plaid;
         document.getElementById('ms-addr').value = site.address;
+        document.getElementById('ms-territory').value = site.territory || '';
+        document.getElementById('ms-loctype').value = site.locationType || '';
       }
     });
   }
@@ -756,6 +813,12 @@ const App = (() => {
     const addr = document.getElementById('ms-addr').value.trim();
     if (!name || !plaid || !addr) { toast('Please fill in all required fields', 'error'); return; }
 
+    const territory = document.getElementById('ms-territory').value.trim();
+    const locationType = document.getElementById('ms-loctype').value.trim();
+    const securityAssessment = document.getElementById('ms-security').value.trim();
+    const siteEngineerOnSite = document.getElementById('ms-site-engineer').value.trim();
+    const contactNo = document.getElementById('ms-contact-no').value.trim();
+
     let gps = { lat: null, lng: null };
     try {
       const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
@@ -767,6 +830,11 @@ const App = (() => {
       siteName: name,
       plaid,
       siteAddress: addr,
+      territory,
+      locationType,
+      securityAssessment,
+      siteEngineerOnSite,
+      contactNo,
       gpsLat: gps.lat,
       gpsLng: gps.lng,
       visitDate: new Date().toISOString().split('T')[0],
@@ -1081,6 +1149,64 @@ const App = (() => {
     });
   }
 
+  // ── Barcode Scanning (Asset Tag / Serial Number) ──────
+  let _barcodeScannerInstance = null;
+  let _barcodeTargetField = null;
+
+  async function openBarcodeScanner(targetFieldId) {
+    _barcodeTargetField = targetFieldId;
+    showModal(`
+      <div class="modal-title">📷 Scan Barcode</div>
+      <div id="barcode-reader" style="width:100%;border-radius:var(--radius-sm);overflow:hidden;background:#000;min-height:260px;"></div>
+      <div id="barcode-status" style="text-align:center;font-size:13px;color:var(--slate-500);margin-top:10px;">Loading scanner…</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeBarcodeScanner()">✏️ Cancel / Enter Manually Instead</button>
+      </div>
+    `);
+
+    try {
+      if (!window.Html5Qrcode) {
+        await loadScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js');
+      }
+      const statusEl = document.getElementById('barcode-status');
+      if (statusEl) statusEl.textContent = 'Point your camera at the barcode…';
+
+      _barcodeScannerInstance = new Html5Qrcode('barcode-reader');
+      await _barcodeScannerInstance.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 120 } },
+        (decodedText) => {
+          const input = document.getElementById(_barcodeTargetField);
+          if (input) {
+            input.value = decodedText;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          toast('Barcode captured!', 'success');
+          closeBarcodeScanner();
+        },
+        () => { /* fires continuously while searching for a code — safe to ignore */ }
+      );
+    } catch (err) {
+      // Camera unavailable, permission denied, or blocked (e.g. not on https://) —
+      // this field is never blocked by the scanner failing. The person can
+      // always cancel and type the value in directly, since it's a normal
+      // text field underneath.
+      const statusEl = document.getElementById('barcode-status');
+      if (statusEl) statusEl.textContent = 'Camera not available or permission denied. No problem — tap "Cancel / Enter Manually Instead" below and type the code in directly.';
+    }
+  }
+
+  async function closeBarcodeScanner() {
+    if (_barcodeScannerInstance) {
+      try {
+        await _barcodeScannerInstance.stop();
+        _barcodeScannerInstance.clear();
+      } catch (err) { /* already stopped — nothing to clean up */ }
+      _barcodeScannerInstance = null;
+    }
+    closeModal();
+  }
+
   function parseOCRText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const result = {};
@@ -1204,13 +1330,19 @@ const App = (() => {
         <!-- Asset Tag -->
         <div class="form-group">
           <label class="form-label">Asset Tag Number <span class="req">*</span></label>
-          <input id="f-tag" class="form-control" value="${escapeHtml(prefill.assetTag || a.assetTag || '')}" placeholder="e.g. GT-00012345">
+          <div style="display:flex;gap:8px;">
+            <input id="f-tag" class="form-control" value="${escapeHtml(prefill.assetTag || a.assetTag || '')}" placeholder="e.g. GT-00012345" style="flex:1;">
+            <button type="button" class="btn btn-outline" style="padding:0 14px;white-space:nowrap;" onclick="App.openBarcodeScanner('f-tag')">📷 Scan</button>
+          </div>
         </div>
 
         <!-- Serial Number -->
         <div class="form-group">
           <label class="form-label">Serial Number <span class="req">*</span></label>
-          <input id="f-serial" class="form-control" value="${escapeHtml(prefill.serialNumber || a.serialNumber || '')}" placeholder="Manufacturer serial number">
+          <div style="display:flex;gap:8px;">
+            <input id="f-serial" class="form-control" value="${escapeHtml(prefill.serialNumber || a.serialNumber || '')}" placeholder="Manufacturer serial number" style="flex:1;">
+            <button type="button" class="btn btn-outline" style="padding:0 14px;white-space:nowrap;" onclick="App.openBarcodeScanner('f-serial')">📷 Scan</button>
+          </div>
         </div>
 
         <!-- Manufacturer -->
@@ -1395,6 +1527,8 @@ const App = (() => {
       siteName: state.session.siteName,
       siteAddress: state.session.siteAddress,
       plaid: state.session.plaid,
+      territory: state.session.territory || '',
+      locationType: state.session.locationType || '',
       engineerName: state.user.name,
       engineerEmail: state.user.email,
       gpsLat: gps.lat,
@@ -1519,7 +1653,7 @@ const App = (() => {
       <div style="background:var(--slate-100);border-radius:var(--radius-sm);padding:12px;font-size:13px;margin-bottom:16px;">
         <div><b>PLAID:</b> ${sess.plaid}</div>
         <div><b>Visit Date:</b> ${fmtDate(sess.visitDate)}</div>
-        <div><b>Engineer:</b> ${sess.engineerName}</div>
+        <div><b>Site Auditor:</b> ${sess.engineerName}</div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
@@ -1541,7 +1675,10 @@ const App = (() => {
         await apiPost('submitBatch', {
           sessionId: sess.id, plaid: sess.plaid, siteName: sess.siteName, siteAddress: sess.siteAddress,
           visitDate: sess.visitDate, engineerName: sess.engineerName, engineerEmail: sess.engineerEmail,
-          assetCount: sess.assetCount
+          assetCount: sess.assetCount,
+          territory: sess.territory || '', locationType: sess.locationType || '',
+          securityAssessment: sess.securityAssessment || '', siteEngineerOnSite: sess.siteEngineerOnSite || '',
+          contactNo: sess.contactNo || ''
         });
         toast(`Batch submitted! (${result.ok}/${result.total} records synced)`, 'success');
       } catch (err) {
@@ -1563,7 +1700,7 @@ const App = (() => {
     await pullRemoteSessions();
     const sessions = await DB.getAll('sessions');
     const mySessions = sessions.filter(s => s.engineerEmail === state.user.email);
-    for (const s of mySessions) { await pullRemoteAssets(s.id); }
+    await pullRemoteAllAssets();
     const assets = await DB.getAll('assets');
     const myAssets = assets.filter(a => mySessions.some(s => s.id === a.sessionId));
     myAssets.sort((a, b) => new Date(b.captureTimestamp) - new Date(a.captureTimestamp));
@@ -1606,6 +1743,8 @@ const App = (() => {
       plaid: a.plaid,
       siteName: a.siteName,
       siteAddress: a.siteAddress,
+      territory: a.territory || '',
+      locationType: a.locationType || '',
       companyName: a.companyName,
       assetTag: a.assetTag,
       serialNumber: a.serialNumber,
@@ -1664,6 +1803,20 @@ const App = (() => {
     if (!navigator.onLine) return;
     try {
       const res = await fetch(`${API_BASE_URL}?action=getAssetsBySession&sessionId=${encodeURIComponent(sessionId)}`);
+      const remote = await res.json();
+      if (!Array.isArray(remote)) return;
+      for (const ra of remote) {
+        await DB.put('assets', ra);
+      }
+    } catch (err) { /* offline or unreachable — keep showing local cache */ }
+  }
+
+  // Faster version for screens that need EVERY asset (dashboard, my
+  // records, accounting) — one network call instead of one per session.
+  async function pullRemoteAllAssets() {
+    if (!navigator.onLine) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}?action=getAllAssets`);
       const remote = await res.json();
       if (!Array.isArray(remote)) return;
       for (const ra of remote) {
@@ -1854,7 +2007,7 @@ const App = (() => {
 
   function returnBatch(sessionId) {
     showModal(`
-      <div class="modal-title">↩️ Return Batch to Engineer</div>
+      <div class="modal-title">↩️ Return Batch to Site Auditor</div>
       <div class="form-group">
         <label class="form-label">Comments / Reason for Return <span class="req">*</span></label>
         <textarea id="return-comment" class="form-control" placeholder="Explain what needs to be corrected..." rows="4"></textarea>
@@ -1887,7 +2040,7 @@ const App = (() => {
     }
 
     closeModal();
-    toast('Batch returned to engineer', '');
+    toast('Batch returned to site auditor', '');
     renderSupervisor();
   }
 
@@ -1897,7 +2050,7 @@ const App = (() => {
     await pullRemoteSessions();
     const sessions = await DB.getAll('sessions');
     const approved = sessions.filter(s => s.status === 'Approved');
-    for (const s of approved) { await pullRemoteAssets(s.id); }
+    await pullRemoteAllAssets();
     const assets = await DB.getAll('assets');
     const approvedAssets = assets.filter(a => approved.some(s => s.id === a.sessionId));
 
@@ -1981,7 +2134,7 @@ const App = (() => {
     await pullRemoteSessions();
     const sessions = await DB.getAll('sessions');
     const approved = sessions.filter(s => s.status === 'Approved');
-    for (const s of approved) { await pullRemoteAssets(s.id); }
+    await pullRemoteAllAssets();
     const assets = await DB.getAll('assets');
     const approvedAssets = assets.filter(a => approved.some(s => s.id === a.sessionId));
     if (approvedAssets.length === 0) { toast('No approved assets to export', 'error'); return; }
@@ -2002,7 +2155,7 @@ const App = (() => {
       'MANUFACTURER','EQUIPMENT_TYPE','EQUIPMENT_MODEL','DESCRIPTION','ASSET_CATEGORY','CONDITION',
       'DECOMMISSIONED_DATE','CAPTURE_DATE','ENGINEER_NAME','ENGINEER_EMAIL','GPS_LAT','GPS_LNG',
       'PHOTO_URL_1','PHOTO_URL_2','PHOTO_URL_3','SUPERVISOR_NAME','APPROVAL_DATE','REMARKS',
-      'ACCOUNTING_DISPOSITION','BOOKING_REFERENCE'
+      'ACCOUNTING_DISPOSITION','BOOKING_REFERENCE','TERRITORY','LOCATION_TYPE'
     ];
 
     const rows = assets.map(a => {
@@ -2019,6 +2172,7 @@ const App = (() => {
         sess.supervisorName || '',
         sess.approvalDate ? sess.approvalDate.replace('T',' ').substring(0,19) : '',
         a.notes || '', '', '',
+        a.territory || '', a.locationType || '',
       ].map(v => `"${String(v || '').replace(/"/g, '""')}"`);
     });
 
@@ -2124,7 +2278,7 @@ const App = (() => {
               <span style="font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;background:${isActive ? '#dcfce7' : '#fee2e2'};color:${isActive ? '#166534' : '#991b1b'};">${isActive ? 'Active' : 'Inactive'}</span>
             </div>
             <div style="font-size:13px;color:var(--slate-700);">${escapeHtml(u.email || '')}</div>
-            <div style="font-size:12px;color:var(--slate-500);text-transform:capitalize;">${escapeHtml(u.role || '')}${u.supervisorEmail ? ' · reports to ' + escapeHtml(u.supervisorEmail) : ''}</div>
+            <div style="font-size:12px;color:var(--slate-500);">${escapeHtml(roleDisplayName(String(u.role || '').toLowerCase()))}${u.supervisorEmail ? ' · reports to ' + escapeHtml(u.supervisorEmail) : ''}</div>
           </div>
         `;
       }).join('');
@@ -2158,6 +2312,7 @@ const App = (() => {
     capturePhoto, closeCamera, switchCamera,
     _onPhotoFileSelected,
     attemptLogin, tryAutoLogin, loadReferenceData,
+    openBarcodeScanner, closeBarcodeScanner,
   };
 
 })();
