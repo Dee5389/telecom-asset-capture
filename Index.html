@@ -1,0 +1,2384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Telecom Asset Capture</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sky: #0ea5e9; --sky-dark: #0284c7; --sky-light: #e0f2fe;
+      --slate-900: #0f172a; --slate-800: #1e293b; --slate-700: #334155;
+      --slate-600: #475569; --slate-400: #94a3b8; --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9; --slate-50: #f8fafc; --white: #ffffff;
+      --green: #22c55e; --green-light: #dcfce7;
+      --red: #ef4444; --red-light: #fee2e2;
+      --orange: #f97316; --orange-light: #ffedd5;
+      --yellow: #eab308; --yellow-light: #fef9c3;
+      --purple: #a855f7; --purple-light: #f3e8ff;
+      --radius: 12px; --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.15);
+      --nav-height: 64px; --header-height: 56px;
+    }
+
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--slate-100); color: var(--slate-800); }
+
+    #app { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+    #header { background: var(--slate-900); color: var(--white); height: var(--header-height); display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; z-index: 100; }
+    #header .logo { font-size: 20px; }
+    #header .title { font-weight: 700; font-size: 15px; flex: 1; }
+    #header .subtitle { font-size: 11px; color: var(--slate-400); }
+    #sync-badge { background: var(--orange); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; display: none; }
+    #sync-badge.visible { display: block; }
+    #online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    #online-dot.offline { background: var(--red); }
+
+    #main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #view { padding-bottom: calc(var(--nav-height) + 16px); }
+
+    #nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-height); background: var(--white); border-top: 1px solid var(--slate-200); display: flex; z-index: 100; }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 10px; font-weight: 600; color: var(--slate-400); border: none; background: none; cursor: pointer; padding: 8px 4px; transition: color 0.15s; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    .nav-btn.active { color: var(--sky); }
+    .nav-btn .nav-icon { font-size: 22px; }
+
+    .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin: 0 16px 12px; }
+    .card-title { font-size: 13px; font-weight: 700; color: var(--slate-600); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 15px; font-weight: 600; padding: 14px 20px; transition: opacity 0.15s, transform 0.1s; -webkit-tap-highlight-color: transparent; width: 100%; touch-action: manipulation; }
+    .btn:active { opacity: .85; transform: scale(.98); }
+    .btn-primary { background: var(--sky); color: var(--white); }
+    .btn-success { background: var(--green); color: var(--white); }
+    .btn-danger { background: var(--red); color: var(--white); }
+    .btn-outline { background: transparent; border: 2px solid var(--sky); color: var(--sky); }
+    .btn-ghost { background: var(--slate-100); color: var(--slate-700); }
+    .btn-sm { font-size: 13px; padding: 8px 14px; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--slate-600); margin-bottom: 6px; }
+    .form-label .req { color: var(--red); margin-left: 2px; }
+    .form-control { width: 100%; border: 1.5px solid var(--slate-200); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 15px; color: var(--slate-800); background: var(--white); appearance: none; -webkit-appearance: none; transition: border-color 0.15s; }
+    .form-control:focus { outline: none; border-color: var(--sky); }
+    .form-control::placeholder { color: var(--slate-400); }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    select.form-control { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%2394a3b8' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: .4px; }
+    .badge-draft { background: var(--slate-200); color: var(--slate-600); }
+    .badge-submitted { background: var(--yellow-light); color: #854d0e; }
+    .badge-review { background: var(--orange-light); color: #9a3412; }
+    .badge-approved { background: var(--green-light); color: #166534; }
+    .badge-returned { background: var(--red-light); color: #991b1b; }
+    .badge-synced { background: var(--sky-light); color: #0369a1; }
+    .badge-pending { background: var(--yellow-light); color: #854d0e; }
+    .badge-failed { background: var(--red-light); color: #991b1b; }
+    .badge-good { background: var(--green-light); color: #166534; }
+    .badge-defective { background: var(--red-light); color: #991b1b; }
+    .badge-decommissioned { background: var(--slate-200); color: var(--slate-600); }
+    .badge-unknown { background: var(--slate-100); color: var(--slate-500); }
+
+    .section-title { font-size: 18px; font-weight: 700; color: var(--slate-900); padding: 20px 16px 12px; }
+    .divider { height: 1px; background: var(--slate-200); margin: 4px 0; }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--slate-400); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 15px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-box { background: var(--white); border-radius: var(--radius-sm); padding: 14px; box-shadow: var(--shadow); text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 800; color: var(--sky); line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--slate-500); margin-top: 4px; font-weight: 600; }
+
+    .asset-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border-bottom: 1px solid var(--slate-100); cursor: pointer; touch-action: manipulation; }
+    .asset-item:active { background: var(--slate-50); }
+    .asset-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--sky-light); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .asset-info { flex: 1; min-width: 0; }
+    .asset-tag { font-weight: 700; font-size: 14px; color: var(--slate-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .asset-type { font-size: 12px; color: var(--slate-500); margin-top: 2px; }
+    .asset-chevron { color: var(--slate-300); font-size: 18px; }
+
+    #camera-canvas { display: none; }
+    #ocr-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.9); z-index: 210; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; }
+    #ocr-overlay .ocr-spinner { width: 48px; height: 48px; border: 3px solid rgba(255,255,255,.2); border-top-color: var(--sky); border-radius: 50%; animation: spin .8s linear infinite; }
+
+    .photo-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+    .photo-thumb { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 2px solid var(--slate-200); }
+    .photo-slot { width: 80px; height: 80px; border-radius: 8px; border: 2px dashed var(--slate-300); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 28px; color: var(--slate-300); background: var(--slate-50); touch-action: manipulation; }
+    .photo-slot:active { background: var(--sky-light); border-color: var(--sky); }
+
+    #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--slate-900); color: white; padding: 12px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 300; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; white-space: nowrap; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { background: var(--green); }
+    #toast.error { background: var(--red); }
+
+    #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 250; display: none; align-items: flex-end; }
+    #modal-overlay.active { display: flex; }
+    #modal-box { background: var(--white); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-height: 85vh; overflow-y: auto; padding: 20px; animation: slideUp .25s ease; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-actions .btn { flex: 1; }
+
+    .progress-bar-wrap { height: 6px; background: var(--slate-200); border-radius: 3px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--sky); border-radius: 3px; transition: width .3s; }
+
+    #login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, var(--slate-900), #0c4a6e); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 500; padding: 32px; overflow-y: auto; }
+    #login-screen .app-logo { font-size: 64px; margin-bottom: 16px; }
+    #login-screen h1 { color: white; font-size: 24px; font-weight: 800; text-align: center; }
+    #login-screen p { color: var(--slate-400); font-size: 14px; margin-top: 8px; text-align: center; }
+    .login-card { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius); padding: 24px; margin-top: 24px; width: 100%; max-width: 380px; }
+    .login-card h2 { color: white; font-size: 16px; margin-bottom: 16px; font-weight: 600; }
+    .role-btn { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius-sm); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); color: white; cursor: pointer; margin-bottom: 10px; font-size: 14px; transition: background .15s; width: 100%; text-align: left; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .role-btn:hover, .role-btn:active { background: rgba(14,165,233,.25); border-color: var(--sky); }
+    .role-btn .role-icon { font-size: 24px; flex-shrink: 0; }
+    .role-btn .role-name { font-weight: 700; font-size: 15px; }
+    .role-btn .role-desc { font-size: 12px; color: var(--slate-400); }
+    .demo-note { color: var(--slate-500); font-size: 11px; text-align: center; margin-top: 16px; }
+
+    @media (min-width: 640px) {
+      #view { max-width: 680px; margin: 0 auto; }
+      #nav { max-width: 680px; left: 50%; transform: translateX(-50%); border-left: 1px solid var(--slate-200); border-right: 1px solid var(--slate-200); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="app-logo">&#x1F4E1;</div>
+  <h1>Telecom Asset Capture</h1>
+  <p>Field inventory for telecom site auditors</p>
+  <div class="login-card">
+    <h2>Sign in</h2>
+    <label for="login-email" style="display:block;font-size:12px;color:var(--slate-400);margin-bottom:6px;">Globe email address</label>
+    <input type="email" id="login-email" placeholder="yourname@globe.com.ph" autocomplete="username"
+           style="width:100%;box-sizing:border-box;padding:13px 14px;border-radius:var(--radius-sm);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:white;font-size:15px;margin-bottom:12px;">
+    <button class="role-btn" id="btn-login-submit" style="justify-content:center;">
+      <div class="role-name">Continue</div>
+    </button>
+    <div id="login-status" style="min-height:18px;margin-top:10px;font-size:13px;text-align:center;color:var(--slate-400);"></div>
+    <div class="demo-note">Only approved Globe Telecom staff can sign in</div>
+    <div class="demo-note" style="margin-top:6px;opacity:0.6;">App version 1.5.0</div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <div id="header">
+    <span class="logo">&#x1F4E1;</span>
+    <div style="flex:1">
+      <div class="title">Asset Capture</div>
+      <div class="subtitle" id="header-user">&#x2014;</div>
+    </div>
+    <span id="sync-badge">0</span>
+    <span id="online-dot"></span>
+  </div>
+  <div id="main"><div id="view"></div></div>
+  <nav id="nav"></nav>
+</div>
+
+<!-- Persistent file inputs — triggered via <label for>, no JS .click() needed -->
+<input type="file" id="_cam-file" accept="image/*" capture="environment"
+       style="position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);top:0;left:0;">
+<input type="file" id="_gal-file" accept="image/*"
+       style="position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);top:0;left:0;">
+
+<!-- Live webcam viewfinder — desktop only, via getUserMedia -->
+<div id="camera-container" style="display:none;position:fixed;inset:0;background:#000;z-index:200;flex-direction:column;">
+  <video id="camera-video" autoplay playsinline muted style="flex:1;object-fit:cover;width:100%;"></video>
+  <canvas id="camera-canvas" style="display:none;"></canvas>
+  <div style="display:flex;align-items:center;justify-content:space-around;padding:20px;background:rgba(0,0,0,.7);">
+    <button id="btn-close-camera" style="background:none;border:none;color:white;font-size:32px;cursor:pointer;touch-action:manipulation;padding:8px;">&#x2715;</button>
+    <button id="btn-capture-live" style="width:76px;height:76px;border-radius:50%;background:white;border:4px solid rgba(255,255,255,.5);cursor:pointer;font-size:30px;touch-action:manipulation;">&#x1F4F7;</button>
+    <button id="btn-switch-camera" style="background:none;border:none;color:white;font-size:32px;cursor:pointer;touch-action:manipulation;padding:8px;">&#x1F504;</button>
+  </div>
+</div>
+
+<div id="ocr-overlay" style="display:none;">
+  <div class="ocr-spinner"></div>
+  <div style="font-size:16px;font-weight:600;">Processing image...</div>
+  <div id="ocr-status" style="font-size:13px;color:var(--slate-400);">Running OCR</div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-box"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// TELECOM ASSET CAPTURE APP — app.js
+// ============================================================
+
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────
+
+const EQUIPMENT_TYPES = [
+  { id: 1, name: 'Towers', icon: '🗼', desc: 'Guyed masts, self-supporting towers, monopoles, rooftop structures' },
+  { id: 2, name: 'Power Systems', icon: '⚡', desc: 'AC/DC power distribution units, power panels, PDUs' },
+  { id: 3, name: 'Rectifiers', icon: '🔋', desc: 'DC rectifier modules, rectifier shelves, charger units' },
+  { id: 4, name: 'Batteries', icon: '🔌', desc: 'VRLA battery banks, lithium battery systems, UPS batteries' },
+  { id: 5, name: 'BBU (Baseband Unit)', icon: '📦', desc: 'Baseband processing units, baseband controllers, BBU shelves' },
+  { id: 6, name: 'RRU (Remote Radio Unit)', icon: '📡', desc: 'Remote radio heads, RRUs, RRHs, active antenna units' },
+  { id: 7, name: 'Antenna Systems', icon: '📶', desc: 'Panel antennas, sector antennas, antenna mounts, feeders, jumpers' },
+  { id: 8, name: 'Routers', icon: '🌐', desc: 'IP routers, edge routers, core routers, CPEs' },
+  { id: 9, name: 'Modems', icon: '📟', desc: 'DSL modems, fibre ONUs, cable modems' },
+  { id: 10, name: 'Microwave Radio', icon: '📻', desc: 'Microwave IDUs, ODUs, microwave antennas, backhaul radios' },
+  { id: 11, name: 'Switches', icon: '🔀', desc: 'Ethernet switches, optical switches, aggregation switches' },
+  { id: 12, name: 'RAN Assets', icon: '🛜', desc: 'RAN controllers, O-RAN components, fronthaul assets' },
+  { id: 13, name: 'Generators', icon: '⚙️', desc: 'Diesel generators, generator control panels, automatic transfer switches' },
+  { id: 14, name: 'Software / Licenses', icon: '💾', desc: 'Network management software, OS licenses, application licenses' },
+  { id: 15, name: 'Logical Assets', icon: '🔗', desc: 'IP addresses, VLANs, virtual machines, logical network elements' },
+  { id: 16, name: 'Cables', icon: '🔌', desc: 'Power cables, fibre cables, RF cables, underground cable runs' },
+  { id: 17, name: 'Other', icon: '📋', desc: 'Any asset type not covered by the above categories' },
+];
+
+const CONDITIONS = [
+  { id: 'good', label: 'Good Working Condition', color: 'good', icon: '✅' },
+  { id: 'defective', label: 'Defective', color: 'defective', icon: '❌' },
+  { id: 'powered_down', label: 'Powered Down', color: 'pending', icon: '⏸️' },
+  { id: 'nearing_eol', label: 'Aging/Due for Replacement', color: 'review', icon: '⚠️' },
+  { id: 'decommissioned', label: 'Decommissioned', color: 'decommissioned', icon: '🚫' },
+  { id: 'unknown', label: 'Unknown', color: 'unknown', icon: '❓' },
+];
+
+const ASSET_CATEGORIES = ['Physical Asset', 'Software / License', 'Logical Asset', 'Underground Cable'];
+
+// Site Security Assessment options — maintained in the SecurityAssessments
+// tab of the Master Sheet by IT Admin (same live-fetch pattern as
+// EquipmentTypes/PLAIDs). Empty until that tab exists / has rows.
+let SECURITY_ASSESSMENTS = [];
+
+const BATCH_STATUSES = ['Draft', 'Submitted', 'Under Review', 'Approved', 'Returned'];
+
+const SAMPLE_PLAIDS = ['PH-NCR-001', 'PH-NCR-002', 'PH-LUZ-015', 'PH-VIS-008', 'PH-MIN-022', 'PH-NCR-099'];
+
+const SAMPLE_SITES = [
+  { plaid: 'PH-NCR-001', name: 'Makati Central Tower', address: '123 Ayala Ave, Makati City, Metro Manila 1200' },
+  { plaid: 'PH-NCR-002', name: 'BGC Rooftop Station', address: '5th Ave, Bonifacio Global City, Taguig, Metro Manila 1634' },
+  { plaid: 'PH-LUZ-015', name: 'Batangas Relay Hub', address: 'National Highway, Batangas City, Batangas 4200' },
+  { plaid: 'PH-VIS-008', name: 'Cebu IT Park Node', address: 'Lahug, Cebu City, Cebu 6000' },
+  { plaid: 'PH-MIN-022', name: 'Davao South Exchange', address: 'Matina, Davao City, Davao del Sur 8000' },
+];
+
+// ── IndexedDB ──────────────────────────────────────────────
+
+const DB = (() => {
+  let _db = null;
+
+  async function open() {
+    if (_db) return _db;
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('telecom-asset-db', 3);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('sessions')) {
+          const s = db.createObjectStore('sessions', { keyPath: 'id' });
+          s.createIndex('status', 'status');
+          s.createIndex('plaid', 'plaid');
+        }
+        if (!db.objectStoreNames.contains('assets')) {
+          const a = db.createObjectStore('assets', { keyPath: 'id' });
+          a.createIndex('sessionId', 'sessionId');
+          a.createIndex('syncStatus', 'syncStatus');
+        }
+        if (!db.objectStoreNames.contains('photos')) {
+          db.createObjectStore('photos', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' });
+        }
+      };
+      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function tx(store, mode, fn) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(store, mode);
+      const s = t.objectStore(store);
+      const req = fn(s);
+      if (req && req.onsuccess !== undefined) {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      } else {
+        t.oncomplete = () => resolve();
+        t.onerror = () => reject(t.error);
+      }
+    });
+  }
+
+  async function getAll(store) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(store, 'readonly');
+      const req = t.objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function getByIndex(store, index, value) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(store, 'readonly');
+      const req = t.objectStore(store).index(index).getAll(value);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function put(store, obj) { return tx(store, 'readwrite', s => s.put(obj)); }
+  async function get(store, key) { return tx(store, 'readonly', s => s.get(key)); }
+  async function del(store, key) { return tx(store, 'readwrite', s => s.delete(key)); }
+
+  return { open, put, get, del, getAll, getByIndex };
+})();
+
+// ── Utilities ─────────────────────────────────────────────
+
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function now() { return new Date().toISOString(); }
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function conditionBadge(cond) {
+  const c = CONDITIONS.find(x => x.id === cond) || { label: cond, color: 'unknown', icon: '❓' };
+  return `<span class="badge badge-${c.color}">${c.icon} ${c.label}</span>`;
+}
+
+function statusBadge(status) {
+  const map = {
+    Draft: 'badge-draft', Submitted: 'badge-submitted',
+    'Under Review': 'badge-review', Approved: 'badge-approved', Returned: 'badge-returned'
+  };
+  return `<span class="badge ${map[status] || 'badge-draft'}">${status}</span>`;
+}
+
+function syncBadge(s) {
+  const map = { synced: 'badge-synced', pending: 'badge-pending', failed: 'badge-failed' };
+  return `<span class="badge ${map[s] || 'badge-pending'}">${s}</span>`;
+}
+
+function equipIcon(typeName) {
+  const t = EQUIPMENT_TYPES.find(e => e.name === typeName);
+  return t ? t.icon : '📋';
+}
+
+// ── Toast & Modal ─────────────────────────────────────────
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 2800);
+}
+
+function showModal(html) {
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+// ── Main App ──────────────────────────────────────────────
+
+const App = (() => {
+
+  let state = {
+    user: null,      // { name, email, role }
+    view: null,
+    session: null,   // current active site session
+    editAsset: null, // asset being edited
+    cameraStream: null,
+    cameraFacing: 'environment',
+    captureCallback: null,
+    pendingCount: 0,
+    reviewFrom: null,
+  };
+
+  // ── Auth ─────────────────────────────────────────────
+
+  // Phase 2 backend ("mail clerk") — Apps Script Web App URL
+  const API_BASE_URL = 'https://script.google.com/a/macros/globe.com.ph/s/AKfycbynbA3aMzvYybCzNpXzwNumOspNUH_BcK0mFhn5Q-AwBYQSZHNVEK_m7V_1Whch40L6/exec';
+
+  function login(role, name, email) {
+    state.user = { role, name, email };
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('header-user').textContent = `${name} · ${roleDisplayName(role)}`;
+    renderNav();
+    initOnlineStatus();
+    updateSyncBadge();
+    navigate(defaultView(role));
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+    // Refresh PLAID/Equipment lists in the background (safe no-op if offline)
+    loadReferenceData();
+  }
+
+  function setLoginStatus(msg, color) {
+    const el = document.getElementById('login-status');
+    if (el) { el.textContent = msg || ''; el.style.color = color || 'var(--slate-400)'; }
+  }
+
+  async function attemptLogin(rawEmail) {
+    const email = (rawEmail || '').trim().toLowerCase();
+    if (!email) { setLoginStatus('Please enter your email address.', '#e74c3c'); return; }
+
+    setLoginStatus('Signing in…', 'var(--slate-400)');
+
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+      const res = await fetch(`${API_BASE_URL}?action=login&email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      if (data.status === 'ok') {
+        await DB.put('settings', { key: 'currentUser', name: data.name, email: data.email, role: data.role });
+        login(data.role, data.name, data.email);
+      } else {
+        setLoginStatus(data.error || 'Sign-in failed. Please try again.', '#e74c3c');
+      }
+    } catch (err) {
+      // Offline or server unreachable — fall back to a previously saved login for this same email
+      const cached = await DB.get('settings', 'currentUser');
+      if (cached && cached.email === email) {
+        setLoginStatus('Offline — signed in using your last saved login.', '#e0a800');
+        login(cached.role, cached.name, cached.email);
+      } else {
+        setLoginStatus('Could not reach the server. Connect to the internet at least once to sign in.', '#e74c3c');
+      }
+    }
+  }
+
+  async function tryAutoLogin() {
+    try {
+      const cached = await DB.get('settings', 'currentUser');
+      if (cached && cached.email) {
+        login(cached.role, cached.name, cached.email);
+        return true;
+      }
+    } catch (err) { /* no cached session yet */ }
+    return false;
+  }
+
+  // Fetch live PLAID/Equipment lists from the mail clerk. Falls back to the
+  // last successfully cached copy if offline, and to the built-in defaults
+  // above if there's no cached copy either (e.g. very first run, offline).
+  async function loadReferenceData() {
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+      const [plaids, types, security] = await Promise.all([
+        fetch(`${API_BASE_URL}?action=plaids`).then(r => r.json()),
+        fetch(`${API_BASE_URL}?action=equipmentTypes`).then(r => r.json()),
+        fetch(`${API_BASE_URL}?action=getSecurityAssessments`).then(r => r.json()).catch(() => [])
+      ]);
+
+      if (Array.isArray(plaids) && plaids.length) {
+        SAMPLE_SITES.length = 0;
+        plaids.forEach(p => SAMPLE_SITES.push({
+          plaid: p.plaid, name: p.name, address: p.address,
+          territory: p.territory || '', locationType: p.locationType || ''
+        }));
+        SAMPLE_PLAIDS.length = 0;
+        plaids.forEach(p => SAMPLE_PLAIDS.push(p.plaid));
+        await DB.put('settings', { key: 'cachedSites', value: SAMPLE_SITES.slice() });
+      }
+
+      if (Array.isArray(types) && types.length) {
+        EQUIPMENT_TYPES.length = 0;
+        types.forEach(t => EQUIPMENT_TYPES.push({ id: t.id, name: t.name, icon: t.icon, desc: t.desc || '' }));
+        await DB.put('settings', { key: 'cachedEquipmentTypes', value: EQUIPMENT_TYPES.slice() });
+      }
+
+      if (Array.isArray(security)) {
+        SECURITY_ASSESSMENTS.length = 0;
+        security.forEach(s => SECURITY_ASSESSMENTS.push({ id: s.id, name: s.name }));
+        await DB.put('settings', { key: 'cachedSecurityAssessments', value: SECURITY_ASSESSMENTS.slice() });
+      }
+    } catch (err) {
+      // Offline or server unreachable — use the last cached copy, if we have one
+      try {
+        const cachedSites = await DB.get('settings', 'cachedSites');
+        if (cachedSites && cachedSites.value && cachedSites.value.length) {
+          SAMPLE_SITES.length = 0;
+          cachedSites.value.forEach(p => SAMPLE_SITES.push(p));
+          SAMPLE_PLAIDS.length = 0;
+          cachedSites.value.forEach(p => SAMPLE_PLAIDS.push(p.plaid));
+        }
+        const cachedTypes = await DB.get('settings', 'cachedEquipmentTypes');
+        if (cachedTypes && cachedTypes.value && cachedTypes.value.length) {
+          EQUIPMENT_TYPES.length = 0;
+          cachedTypes.value.forEach(t => EQUIPMENT_TYPES.push(t));
+        }
+        const cachedSecurity = await DB.get('settings', 'cachedSecurityAssessments');
+        if (cachedSecurity && cachedSecurity.value && cachedSecurity.value.length) {
+          SECURITY_ASSESSMENTS.length = 0;
+          cachedSecurity.value.forEach(s => SECURITY_ASSESSMENTS.push(s));
+        }
+      } catch (e2) { /* keep the built-in defaults already in the arrays above */ }
+    }
+  }
+
+  // Internal role values stay the same ('engineer', etc.) for data
+  // continuity — this only affects what's shown on screen.
+  function roleDisplayName(role) {
+    if (role === 'engineer') return 'Site Auditor';
+    if (role === 'supervisor') return 'Supervisor';
+    if (role === 'accounting') return 'Accounting';
+    if (role === 'admin') return 'IT Admin';
+    return role;
+  }
+
+  function defaultView(role) {
+    if (role === 'supervisor') return 'supervisor';
+    if (role === 'accounting') return 'accounting';
+    if (role === 'admin') return 'admin';
+    return 'dashboard';
+  }
+
+  function logout() {
+    state.user = null;
+    state.session = null;
+    DB.del('settings', 'currentUser').catch(() => {});
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+
+  // ── Navigation ───────────────────────────────────────
+
+  function renderNav() {
+    const role = state.user.role;
+    const navEl = document.getElementById('nav');
+    let tabs = [];
+    if (role === 'engineer') {
+      tabs = [
+        { id: 'dashboard', icon: '🏠', label: 'Home' },
+        { id: 'capture', icon: '📷', label: 'Capture' },
+        { id: 'my-assets', icon: '📋', label: 'My Records' },
+      ];
+    } else if (role === 'supervisor') {
+      tabs = [
+        { id: 'supervisor', icon: '🏠', label: 'Home' },
+        { id: 'batches', icon: '📁', label: 'Batches' },
+      ];
+    } else if (role === 'accounting') {
+      tabs = [
+        { id: 'accounting', icon: '🏠', label: 'Home' },
+        { id: 'export', icon: '📤', label: 'Export' },
+      ];
+    } else if (role === 'admin') {
+      tabs = [
+        { id: 'admin', icon: '🏠', label: 'Home' },
+        { id: 'admin-equip', icon: '🗂️', label: 'Equipment' },
+        { id: 'admin-plaids', icon: '📍', label: 'PLAIDs' },
+        { id: 'admin-users', icon: '👥', label: 'Users' },
+      ];
+    }
+    tabs.push({ id: 'logout-btn', icon: '🔓', label: 'Sign Out', action: logout });
+
+    navEl.innerHTML = tabs.map(t =>
+      `<button class="nav-btn" data-view="${t.id}" onclick="${t.action ? 'App.logout()' : `App.navigate('${t.id}')`}">
+        <span class="nav-icon">${t.icon}</span>${t.label}
+      </button>`
+    ).join('');
+  }
+
+  function navigate(viewId) {
+    state.view = viewId;
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === viewId);
+    });
+    const viewFns = {
+      dashboard: renderDashboard,
+      capture: renderCaptureStart,
+      'my-assets': renderMyAssets,
+      supervisor: renderSupervisor,
+      batches: renderBatches,
+      accounting: renderAccounting,
+      export: renderExport,
+      admin: renderAdmin,
+      'admin-equip': renderAdminEquip,
+      'admin-plaids': renderAdminPlaids,
+      'admin-users': renderAdminUsers,
+    };
+    const fn = viewFns[viewId];
+    if (fn) fn();
+  }
+
+  // ── Online Status ─────────────────────────────────────
+
+  function initOnlineStatus() {
+    const dot = document.getElementById('online-dot');
+    const update = () => dot.classList.toggle('offline', !navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+  }
+
+  async function updateSyncBadge() {
+    const pending = await DB.getByIndex('assets', 'syncStatus', 'pending');
+    state.pendingCount = pending.length;
+    const badge = document.getElementById('sync-badge');
+    badge.textContent = pending.length;
+    badge.classList.toggle('visible', pending.length > 0);
+  }
+
+  // ── Dashboard (Engineer) ──────────────────────────────
+
+  async function renderDashboard() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const mySessions = sessions.filter(s => s.engineerEmail === state.user.email);
+    await pullRemoteAllAssets();
+    const assets = await DB.getAll('assets');
+    const myAssets = assets.filter(a => mySessions.some(s => s.id === a.sessionId));
+    const pendingSync = myAssets.filter(a => a.syncStatus === 'pending').length;
+
+    const recentSessions = mySessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">👋 Welcome, ${escapeHtml(state.user.name.split(' ')[0])}</div>
+
+      <div class="stat-grid" style="padding: 0 16px 12px;">
+        <div class="stat-box">
+          <div class="stat-num">${mySessions.length}</div>
+          <div class="stat-label">Site Visits</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">${myAssets.length}</div>
+          <div class="stat-label">Total Assets</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--orange)">${pendingSync}</div>
+          <div class="stat-label">Pending Sync</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--green)">${myAssets.filter(a => a.syncStatus === 'synced').length}</div>
+          <div class="stat-label">Synced</div>
+        </div>
+      </div>
+
+      <div style="padding: 0 16px 12px; display: flex; flex-direction: column; gap: 10px;">
+        <button class="btn btn-primary" onclick="App.startNewSession()">
+          ➕ Start New Site Visit
+        </button>
+        ${pendingSync > 0 ? `<button class="btn btn-outline" onclick="App.syncAll()">
+          🔄 Sync ${pendingSync} Pending Record${pendingSync > 1 ? 's' : ''}
+        </button>` : ''}
+      </div>
+
+      ${recentSessions.length > 0 ? `
+        <div class="card">
+          <div class="card-title">Recent Site Visits</div>
+          ${recentSessions.map(s => `
+            <button style="padding: 10px 0; border-bottom: 1px solid var(--slate-100); cursor:pointer;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--slate-100);touch-action:manipulation;" onclick="App.openSession('${s.id}')">
+              <div style="font-weight:700;font-size:14px;">${escapeHtml(s.siteName)}</div>
+              <div style="font-size:12px;color:var(--slate-500);margin-top:3px;">
+                ${escapeHtml(s.plaid)} · ${fmtDate(s.createdAt)}
+              </div>
+              <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+                ${statusBadge(s.status)}
+                <span style="font-size:12px;color:var(--slate-400);">${s.assetCount || 0} assets</span>
+              </div>
+            </button>
+          `).join('')}
+          <div style="padding-top: 10px;">
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('my-assets')">View All Records →</button>
+          </div>
+        </div>
+      ` : `
+        <div class="empty-state">
+          <div class="empty-icon">🏗️</div>
+          <p>No site visits yet.<br>Tap <b>Start New Site Visit</b> to begin.</p>
+        </div>
+      `}
+    `;
+  }
+
+  // ── Start New Session ─────────────────────────────────
+
+  function startNewSession() {
+    showModal(`
+      <div class="modal-title">📍 New Site Visit</div>
+      <div class="form-group">
+        <label class="form-label">Site Name <span class="req">*</span></label>
+        <input id="ms-name" class="form-control" placeholder="e.g. Makati Central Tower" list="site-list">
+        <datalist id="site-list">
+          ${SAMPLE_SITES.map(s => `<option value="${s.name}">`).join('')}
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Physical Location ID (PLAID) <span class="req">*</span></label>
+        <input id="ms-plaid" class="form-control" placeholder="e.g. PH-NCR-001" list="plaid-list">
+        <datalist id="plaid-list">
+          ${SAMPLE_PLAIDS.map(p => `<option value="${p}">`).join('')}
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Site Address <span class="req">*</span></label>
+        <textarea id="ms-addr" class="form-control" placeholder="Full address including street, city, region, postal code" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Territory</label>
+        <input id="ms-territory" class="form-control" placeholder="Auto-filled from PLAID" readonly style="background:var(--slate-100);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location Type</label>
+        <input id="ms-loctype" class="form-control" placeholder="Auto-filled from PLAID" readonly style="background:var(--slate-100);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Site Security Assessment</label>
+        <select id="ms-security" class="form-control">
+          <option value="">${SECURITY_ASSESSMENTS.length ? 'Select assessment…' : 'No options set yet — check with IT Admin'}</option>
+          ${SECURITY_ASSESSMENTS.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Site Engineer on Site</label>
+        <input id="ms-site-engineer" class="form-control" placeholder="Name of site engineer/personnel present">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact No.</label>
+        <input id="ms-contact-no" class="form-control" type="tel" placeholder="e.g. 0917xxxxxxx">
+      </div>
+      <div style="background:var(--sky-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#0369a1;margin-bottom:8px;">
+        📍 GPS and visit timestamp will be captured automatically.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="App.createSession()">Begin Capture →</button>
+      </div>
+    `);
+
+    // Auto-fill when PLAID matches known site (including Territory/Location Type)
+    document.getElementById('ms-plaid').addEventListener('input', () => {
+      const plaid = document.getElementById('ms-plaid').value;
+      const site = SAMPLE_SITES.find(s => s.plaid === plaid);
+      if (site) {
+        document.getElementById('ms-name').value = site.name;
+        document.getElementById('ms-addr').value = site.address;
+        document.getElementById('ms-territory').value = site.territory || '';
+        document.getElementById('ms-loctype').value = site.locationType || '';
+      }
+    });
+    document.getElementById('ms-name').addEventListener('input', () => {
+      const name = document.getElementById('ms-name').value;
+      const site = SAMPLE_SITES.find(s => s.name === name);
+      if (site) {
+        document.getElementById('ms-plaid').value = site.plaid;
+        document.getElementById('ms-addr').value = site.address;
+        document.getElementById('ms-territory').value = site.territory || '';
+        document.getElementById('ms-loctype').value = site.locationType || '';
+      }
+    });
+  }
+
+  function onSiteOrPlaidInput() {}
+
+  async function createSession() {
+    const name = document.getElementById('ms-name').value.trim();
+    const plaid = document.getElementById('ms-plaid').value.trim();
+    const addr = document.getElementById('ms-addr').value.trim();
+    if (!name || !plaid || !addr) { toast('Please fill in all required fields', 'error'); return; }
+
+    const territory = document.getElementById('ms-territory').value.trim();
+    const locationType = document.getElementById('ms-loctype').value.trim();
+    const securityAssessment = document.getElementById('ms-security').value.trim();
+    const siteEngineerOnSite = document.getElementById('ms-site-engineer').value.trim();
+    const contactNo = document.getElementById('ms-contact-no').value.trim();
+
+    let gps = { lat: null, lng: null };
+    try {
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
+      gps = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) };
+    } catch (_) {}
+
+    const session = {
+      id: uuid(),
+      siteName: name,
+      plaid,
+      siteAddress: addr,
+      territory,
+      locationType,
+      securityAssessment,
+      siteEngineerOnSite,
+      contactNo,
+      gpsLat: gps.lat,
+      gpsLng: gps.lng,
+      visitDate: new Date().toISOString().split('T')[0],
+      engineerName: state.user.name,
+      engineerEmail: state.user.email,
+      createdAt: now(),
+      status: 'Draft',
+      assetCount: 0,
+      supervisorName: null,
+      supervisorEmail: null,
+      approvalDate: null,
+      supervisorComment: null,
+    };
+
+    await DB.put('sessions', session);
+    state.session = session;
+    closeModal();
+    toast('Site session created!', 'success');
+    renderCaptureStart();
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'capture'));
+  }
+
+  async function openSession(id) {
+    const session = await DB.get('sessions', id);
+    if (!session) return;
+    state.session = session;
+    navigate('capture');
+  }
+
+  // ── Capture Start ─────────────────────────────────────
+
+  async function renderCaptureStart() {
+    if (!state.session) {
+      const sessions = await DB.getAll('sessions');
+      const drafts = sessions.filter(s => s.engineerEmail === state.user.email && (s.status === 'Draft' || s.status === 'Returned'));
+      if (drafts.length === 0) {
+        document.getElementById('view').innerHTML = `
+          <div class="section-title">📷 Asset Capture</div>
+          <div class="empty-state">
+            <div class="empty-icon">📍</div>
+            <p>No active site session.<br>Start a new visit from the Home screen.</p>
+          </div>
+          <div style="padding: 0 16px;">
+            <button class="btn btn-primary" onclick="App.startNewSession()">➕ Start New Site Visit</button>
+          </div>
+        `;
+        return;
+      }
+      // Auto-select the most recent draft
+      state.session = drafts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    }
+
+    const sess = state.session;
+    const assets = await DB.getByIndex('assets', 'sessionId', sess.id);
+
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">📷 Capture Assets</div>
+
+      <div class="card" style="background:var(--slate-900);color:white;">
+        <div style="font-size:11px;color:var(--slate-400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Active Session</div>
+        <div style="font-weight:700;font-size:16px;">${escapeHtml(sess.siteName)}</div>
+        <div style="font-size:12px;color:var(--slate-400);margin-top:4px;">${escapeHtml(sess.plaid)} · ${fmtDate(sess.visitDate)}</div>
+        <div style="font-size:12px;color:var(--slate-400);margin-top:2px;">${escapeHtml(sess.siteAddress)}</div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          ${statusBadge(sess.status)}
+          <span style="font-size:13px;color:var(--slate-300);">${assets.length} asset${assets.length !== 1 ? 's' : ''} captured</span>
+        </div>
+      </div>
+
+      <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+        <button class="btn btn-primary" style="font-size:16px;" onclick="App.newAssetPhoto()">
+          &#x1F4F7; &nbsp;Take / Upload Photo (OCR)
+        </button>
+        <button class="btn btn-outline" style="font-size:16px;" onclick="App.newAssetManual()">
+          ✏️ &nbsp;Manual Input
+        </button>
+        ${sess.status === 'Draft' && assets.length > 0 ? `
+          <button class="btn btn-success" onclick="App.submitBatch()">
+            ✅ &nbsp;Submit Batch for Review
+          </button>
+        ` : ''}
+        <button class="btn btn-ghost" onclick="App.changeSession()">
+          🔄 Change Session
+        </button>
+      </div>
+
+      ${assets.length > 0 ? `
+        <div style="background:var(--white);border-top:1px solid var(--slate-200);border-bottom:1px solid var(--slate-200);">
+          <div style="padding:12px 16px;font-size:13px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.5px;">Captured Assets</div>
+          ${assets.map(a => assetListItem(a, true)).join('')}
+        </div>
+      ` : ''}
+    `;
+  }
+
+  function assetListItem(a, editable = false) {
+    return `
+      <button class="asset-item" onclick="App.viewAsset('${a.id}', ${editable})" style="width:100%;border:none;text-align:left;">
+        <div class="asset-icon">${equipIcon(a.equipmentType)}</div>
+        <div class="asset-info">
+          <div class="asset-tag">${escapeHtml(a.assetTag) || '<em style="color:var(--slate-400)">No tag</em>'}</div>
+          <div class="asset-type">${escapeHtml(a.equipmentType) || 'Unknown type'}</div>
+          <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            ${conditionBadge(a.condition)}
+            ${syncBadge(a.syncStatus)}
+          </div>
+        </div>
+        <span class="asset-chevron">›</span>
+      </button>
+    `;
+  }
+
+  async function changeSession() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const mine = sessions.filter(s => s.engineerEmail === state.user.email && (s.status === 'Draft' || s.status === 'Returned'));
+    showModal(`
+      <div class="modal-title">Change Session</div>
+      ${mine.length === 0 ? '<p style="color:var(--slate-500)">No open sessions.</p>' :
+        mine.map(s => `
+          <button style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--slate-100);padding:12px 0;cursor:pointer;touch-action:manipulation;" onclick="App.selectSession('${s.id}')">
+            <div style="font-weight:700;">${escapeHtml(s.siteName)}</div>
+            <div style="font-size:12px;color:var(--slate-500);">${s.plaid} · ${fmtDate(s.visitDate)}</div>
+            ${statusBadge(s.status)}
+          </button>
+        `).join('')}
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="App.closeModal();App.startNewSession()">New Session</button>
+      </div>
+    `);
+  }
+
+  async function selectSession(id) {
+    const session = await DB.get('sessions', id);
+    state.session = session;
+    closeModal();
+    renderCaptureStart();
+  }
+
+  // ── Photo Capture + OCR ───────────────────────────────
+
+  // ── Photo Capture — smart routing: webcam on desktop, label-input on mobile ──
+
+  function _isMobile() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
+  function _hasLiveCamera() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  function newAssetPhoto() {
+    if (!state.session) { toast('No active session', 'error'); return; }
+    state.editAsset = null;
+    state.captureCallback = function(dataUrl, file) { runOCR(dataUrl, file); };
+    _showPhotoPickerModal();
+  }
+
+  function _showPhotoPickerModal() {
+    // On desktop with camera support → offer live webcam as the primary option
+    var canLive = _hasLiveCamera() && !_isMobile();
+    showModal(
+      '<div class="modal-title">&#x1F4F7; Add Photo</div>' +
+      '<p style="color:var(--slate-600);margin-bottom:16px;">Choose how to capture this asset:</p>' +
+      (canLive
+        ? '<button class="btn btn-primary" style="margin-bottom:10px;" id="_btn-livecam">&#x1F4F9; Use Webcam (Live Preview)</button>'
+        : '') +
+      '<label for="_cam-file" class="btn ' + (canLive ? 'btn-outline' : 'btn-primary') + '" ' +
+        'style="margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">' +
+        '&#x1F4F7; Take Photo</label>' +
+      '<label for="_gal-file" class="btn btn-ghost" ' +
+        'style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">' +
+        '&#x1F5BC;&#xFE0F; Choose from Gallery / Files</label>'
+    );
+    if (canLive) {
+      var livebtn = document.getElementById('_btn-livecam');
+      if (livebtn) livebtn.addEventListener('click', function() {
+        closeModal();
+        _openLiveCamera();
+      });
+    }
+  }
+
+  // ── Live webcam (desktop / getUserMedia) ──────────────────────────────────
+
+  function _openLiveCamera() {
+    var c = document.getElementById('camera-container');
+    if (c) { c.style.display = 'flex'; }
+    _startLiveStream();
+  }
+
+  function _startLiveStream() {
+    if (state.cameraStream) {
+      state.cameraStream.getTracks().forEach(function(t) { t.stop(); });
+    }
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: state.cameraFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    }).then(function(stream) {
+      state.cameraStream = stream;
+      var v = document.getElementById('camera-video');
+      if (v) v.srcObject = stream;
+    }).catch(function() {
+      closeCamera();
+      toast('Webcam unavailable — use Take Photo or Gallery instead', 'error');
+    });
+  }
+
+  function capturePhoto() {
+    var video = document.getElementById('camera-video');
+    var canvas = document.getElementById('camera-canvas');
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    closeCamera();
+    if (state.captureCallback) state.captureCallback(dataUrl, null);
+  }
+
+  function closeCamera() {
+    if (state.cameraStream) {
+      state.cameraStream.getTracks().forEach(function(t) { t.stop(); });
+      state.cameraStream = null;
+    }
+    var c = document.getElementById('camera-container');
+    if (c) c.style.display = 'none';
+  }
+
+  function switchCamera() {
+    state.cameraFacing = state.cameraFacing === 'environment' ? 'user' : 'environment';
+    _startLiveStream();
+  }
+
+  // ── File input handler (called by DOMContentLoaded wiring below) ──────────
+
+  function _onPhotoFileSelected(file) {
+    if (!file) return;
+    closeModal();
+    toast('Processing photo...', '');
+    _readAndCompressFile(file).then(function(dataUrl) {
+      if (state.captureCallback) state.captureCallback(dataUrl, file);
+    });
+  }
+
+  function _readAndCompressFile(file) {
+    return new Promise(function(resolve) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+          var MAX_W = 1600, MAX_BYTES = 1024 * 1024;
+          var w = img.width, h = img.height;
+          if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          var quality = 0.85, dataUrl;
+          do {
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+            quality -= 0.1;
+          } while (dataUrl.length > MAX_BYTES * 1.37 && quality > 0.3);
+          resolve(dataUrl);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function runOCR(dataUrl, file) {
+    const overlay = document.getElementById('ocr-overlay');
+    overlay.style.display = 'flex';
+    document.getElementById('ocr-status').textContent = 'Loading OCR engine...';
+
+    let extracted = {};
+    try {
+      if (typeof Tesseract === 'undefined') {
+        await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+      }
+      document.getElementById('ocr-status').textContent = 'Recognizing text...';
+      const worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            document.getElementById('ocr-status').textContent = `Recognizing... ${Math.round(m.progress * 100)}%`;
+          }
+        }
+      });
+      const result = await worker.recognize(dataUrl);
+      await worker.terminate();
+
+      const text = result.data.text;
+      extracted = parseOCRText(text);
+      document.getElementById('ocr-status').textContent = 'Classification complete!';
+    } catch (err) {
+      console.warn('OCR error:', err);
+      extracted = {};
+    }
+
+    overlay.style.display = 'none';
+    renderAssetForm({ ...extracted, photos: [dataUrl] });
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  // ── Barcode Scanning (Asset Tag / Serial Number) ──────
+  let _barcodeScannerInstance = null;
+  let _barcodeTargetField = null;
+
+  async function openBarcodeScanner(targetFieldId) {
+    _barcodeTargetField = targetFieldId;
+    showModal(`
+      <div class="modal-title">📷 Scan Barcode</div>
+      <div id="barcode-reader" style="width:100%;border-radius:var(--radius-sm);overflow:hidden;background:#000;min-height:260px;"></div>
+      <div id="barcode-status" style="text-align:center;font-size:13px;color:var(--slate-500);margin-top:10px;">Loading scanner…</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeBarcodeScanner()">✏️ Cancel / Enter Manually Instead</button>
+      </div>
+    `);
+
+    try {
+      if (!window.Html5Qrcode) {
+        await loadScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js');
+      }
+      const statusEl = document.getElementById('barcode-status');
+      if (statusEl) statusEl.textContent = 'Point your camera at the barcode…';
+
+      _barcodeScannerInstance = new Html5Qrcode('barcode-reader', {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      });
+      await _barcodeScannerInstance.start(
+        { facingMode: 'environment' },
+        { fps: 15, qrbox: { width: 280, height: 120 }, disableFlip: true },
+        (decodedText) => {
+          const input = document.getElementById(_barcodeTargetField);
+          if (input) {
+            input.value = decodedText;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          toast('Barcode captured!', 'success');
+          closeBarcodeScanner();
+        },
+        () => { /* fires continuously while searching for a code — safe to ignore */ }
+      );
+    } catch (err) {
+      // Camera unavailable, permission denied, or blocked (e.g. not on https://) —
+      // this field is never blocked by the scanner failing. The person can
+      // always cancel and type the value in directly, since it's a normal
+      // text field underneath.
+      const statusEl = document.getElementById('barcode-status');
+      if (statusEl) statusEl.textContent = 'Camera not available or permission denied. No problem — tap "Cancel / Enter Manually Instead" below and type the code in directly.';
+    }
+  }
+
+  async function closeBarcodeScanner() {
+    if (_barcodeScannerInstance) {
+      try {
+        await _barcodeScannerInstance.stop();
+        _barcodeScannerInstance.clear();
+      } catch (err) { /* already stopped — nothing to clean up */ }
+      _barcodeScannerInstance = null;
+    }
+    closeModal();
+  }
+
+  function parseOCRText(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const result = {};
+
+    // Try to extract serial number (SN: or S/N: patterns)
+    const snMatch = text.match(/(?:S\/N|SN|Serial\s*(?:No\.?|Number)?)\s*[:\-#]?\s*([A-Z0-9\-]{6,20})/i);
+    if (snMatch) result.serialNumber = snMatch[1].trim();
+
+    // Try to extract asset tag (TAG: or Asset No: patterns)
+    const tagMatch = text.match(/(?:Asset\s*(?:Tag|No\.?|#)|TAG|Item\s*No\.?)\s*[:\-#]?\s*([A-Z0-9\-]{4,15})/i);
+    if (tagMatch) result.assetTag = tagMatch[1].trim();
+
+    // Try to extract model
+    const modelMatch = text.match(/(?:Model|Part\s*No\.?|P\/N)\s*[:\-#]?\s*([A-Z0-9\-\/]{4,20})/i);
+    if (modelMatch) result.equipmentModel = modelMatch[1].trim();
+
+    // Brand/Manufacturer detection (common telecom brands)
+    const brands = ['Huawei', 'Ericsson', 'Nokia', 'ZTE', 'Cisco', 'Juniper', 'Samsung', 'Motorola',
+                    'Emerson', 'EnerSys', 'Schneider', 'ABB', 'GE', 'Caterpillar', 'Cummins',
+                    'Comba', 'Andrew', 'CommScope', 'Belden', 'Furukawa'];
+    for (const brand of brands) {
+      if (text.toLowerCase().includes(brand.toLowerCase())) {
+        result.manufacturer = brand;
+        break;
+      }
+    }
+
+    // Equipment type AI classification based on keywords
+    const typeKeywords = {
+      'Towers': ['tower', 'mast', 'monopole', 'guyed'],
+      'Power Systems': ['power', 'distribution', 'pdu', 'panel'],
+      'Rectifiers': ['rectifier', 'charger', 'dc module'],
+      'Batteries': ['battery', 'vrla', 'ups', 'lithium'],
+      'BBU (Baseband Unit)': ['bbu', 'baseband', 'bsc', 'rnc'],
+      'RRU (Remote Radio Unit)': ['rru', 'rrh', 'remote radio'],
+      'Antenna Systems': ['antenna', 'feeder', 'sector', 'panel ant'],
+      'Routers': ['router', 'cpe', 'edge router'],
+      'Modems': ['modem', 'onu', 'dsl'],
+      'Microwave Radio': ['microwave', 'idu', 'odu', 'backhaul'],
+      'Switches': ['switch', 'ethernet switch'],
+      'Generators': ['generator', 'genset', 'diesel', 'cummins'],
+      'Cables': ['cable', 'fibre', 'fiber', 'coax'],
+    };
+
+    const lowerText = text.toLowerCase();
+    for (const [type, keywords] of Object.entries(typeKeywords)) {
+      if (keywords.some(k => lowerText.includes(k))) {
+        result.equipmentType = type;
+        break;
+      }
+    }
+
+    // Take first meaningful line as description
+    const descLine = lines.find(l => l.length > 15 && !/^(?:SN|TAG|Model|S\/N)/i.test(l));
+    if (descLine) result.equipmentDescription = descLine.substring(0, 200);
+
+    return result;
+  }
+
+  // ── Asset Form ────────────────────────────────────────
+
+  function newAssetManual() {
+    if (!state.session) { toast('No active session', 'error'); return; }
+    state.editAsset = null;
+    renderAssetForm({});
+  }
+
+  function renderAssetForm(prefill = {}) {
+    const sess = state.session;
+    const isEdit = !!state.editAsset;
+    const a = state.editAsset || {};
+    const photos = prefill.photos || a.photos || [];
+
+    const category = prefill.assetCategory || a.assetCategory || 'Physical Asset';
+
+    document.getElementById('view').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 8px;">
+        <button onclick="App.renderCaptureStart()" style="background:none;border:none;font-size:22px;cursor:pointer;">‹</button>
+        <span style="font-size:18px;font-weight:700;">${isEdit ? 'Edit Asset' : 'New Asset'}</span>
+      </div>
+
+      <!-- Site info (read-only) -->
+      <div class="card" style="background:var(--sky-light);">
+        <div style="font-size:12px;font-weight:700;color:#0369a1;margin-bottom:6px;">SESSION INFO (Read-only)</div>
+        <div style="font-size:13px;color:var(--slate-700);">
+          <b>${escapeHtml(sess.siteName)}</b> · ${escapeHtml(sess.plaid)}<br>
+          <span style="color:var(--slate-500)">${escapeHtml(sess.siteAddress)}</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <!-- Photos -->
+        <div class="form-group">
+          <label class="form-label">Photos</label>
+          <div class="photo-row" id="photo-row">
+            ${photos.slice(0, 3).map((p, i) => `
+              <div style="position:relative;">
+                <img class="photo-thumb" src="${p}" alt="Photo ${i+1}">
+                <button onclick="App.removePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;">✕</button>
+              </div>
+            `).join('')}
+            ${photos.length < 3 ? `<button class="photo-slot" onclick="App.addPhoto()">+</button>` : ''}
+          </div>
+          <div style="font-size:12px;color:var(--slate-400);margin-top:6px;">Up to 3 photos: overview, nameplate, condition</div>
+        </div>
+
+        <!-- Category -->
+        <div class="form-group">
+          <label class="form-label">Asset Category <span class="req">*</span></label>
+          <select id="f-category" class="form-control" onchange="App.onCategoryChange()">
+            ${ASSET_CATEGORIES.map(c => `<option value="${c}" ${category === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Company -->
+        <div class="form-group">
+          <label class="form-label">Company Name <span class="req">*</span></label>
+          <input id="f-company" class="form-control" value="${escapeHtml(prefill.companyName || a.companyName || 'Globe Telecom')}" placeholder="Asset owner company">
+        </div>
+
+        <!-- Asset Tag -->
+        <div class="form-group">
+          <label class="form-label">Asset Tag Number <span class="req">*</span></label>
+          <div style="display:flex;gap:8px;">
+            <input id="f-tag" class="form-control" value="${escapeHtml(prefill.assetTag || a.assetTag || '')}" placeholder="e.g. GT-00012345" style="flex:1;min-width:0;font-size:16px;padding:12px 14px;">
+            <button type="button" class="btn btn-outline" title="Scan barcode" style="flex:0 0 auto;width:44px;padding:0;font-size:18px;" onclick="App.openBarcodeScanner('f-tag')">📷</button>
+          </div>
+        </div>
+
+        <!-- Serial Number -->
+        <div class="form-group">
+          <label class="form-label">Serial Number <span class="req">*</span></label>
+          <div style="display:flex;gap:8px;">
+            <input id="f-serial" class="form-control" value="${escapeHtml(prefill.serialNumber || a.serialNumber || '')}" placeholder="Manufacturer serial number" style="flex:1;min-width:0;font-size:16px;padding:12px 14px;">
+            <button type="button" class="btn btn-outline" title="Scan barcode" style="flex:0 0 auto;width:44px;padding:0;font-size:18px;" onclick="App.openBarcodeScanner('f-serial')">📷</button>
+          </div>
+        </div>
+
+        <!-- Manufacturer -->
+        <div class="form-group">
+          <label class="form-label">Manufacturer / Brand <span class="req">*</span></label>
+          <input id="f-mfr" class="form-control" value="${escapeHtml(prefill.manufacturer || a.manufacturer || '')}" placeholder="e.g. Huawei, Ericsson, Nokia" list="brand-list">
+          <datalist id="brand-list">
+            ${['Huawei','Ericsson','Nokia','ZTE','Cisco','Juniper','Samsung','Motorola','Emerson','EnerSys','Schneider','GE','Caterpillar','Cummins','Comba','CommScope'].map(b => `<option value="${b}">`).join('')}
+          </datalist>
+        </div>
+
+        <!-- Equipment Type -->
+        <div class="form-group">
+          <label class="form-label">Equipment Type <span class="req">*</span></label>
+          <select id="f-type" class="form-control">
+            <option value="">— Select type —</option>
+            ${EQUIPMENT_TYPES.map(t => `<option value="${t.name}" ${(prefill.equipmentType || a.equipmentType) === t.name ? 'selected' : ''}>${t.icon} ${t.name}</option>`).join('')}
+          </select>
+          ${prefill.equipmentType ? `<div style="font-size:12px;color:var(--sky);margin-top:4px;">🤖 AI suggested: ${prefill.equipmentType}</div>` : ''}
+        </div>
+
+        <!-- Model -->
+        <div class="form-group">
+          <label class="form-label">Equipment Model <span class="req">*</span></label>
+          <input id="f-model" class="form-control" value="${escapeHtml(prefill.equipmentModel || a.equipmentModel || '')}" placeholder="Model name or number">
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label class="form-label">Equipment Description <span class="req">*</span></label>
+          <textarea id="f-desc" class="form-control" placeholder="Free-form description of the asset">${escapeHtml(prefill.equipmentDescription || a.equipmentDescription || '')}</textarea>
+        </div>
+
+        <!-- Dynamic fields based on category -->
+        <div id="dynamic-fields">
+          ${renderDynamicFields(category, prefill, a)}
+        </div>
+
+        <!-- Condition -->
+        <div class="form-group">
+          <label class="form-label">Asset Condition <span class="req">*</span></label>
+          <select id="f-condition" class="form-control" onchange="App.onConditionChange()">
+            <option value="">— Select condition —</option>
+            ${CONDITIONS.map(c => `<option value="${c.id}" ${(prefill.condition || a.condition) === c.id ? 'selected' : ''}>${c.icon} ${c.label}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Decommissioned Date (shown conditionally) -->
+        <div id="decom-date-group" class="form-group" style="${(prefill.condition || a.condition) === 'decommissioned' ? '' : 'display:none'}">
+          <label class="form-label">Decommissioned Date</label>
+          <input id="f-decom-date" type="date" class="form-control" value="${a.decommissionedDate || ''}">
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label class="form-label">Notes / Remarks</label>
+          <textarea id="f-notes" class="form-control" placeholder="Any additional observations">${escapeHtml(prefill.notes || a.notes || '')}</textarea>
+        </div>
+
+        <!-- OCR confidence note -->
+        ${photos.length > 0 && Object.keys(prefill).length > 1 ? `
+          <div style="background:var(--yellow-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#854d0e;margin-bottom:12px;">
+            ⚠️ Fields auto-filled by OCR — please review and correct before saving.
+          </div>
+        ` : ''}
+
+        <button class="btn btn-primary" onclick="App.saveAsset()">
+          💾 Save Asset Record
+        </button>
+      </div>
+    `;
+
+    // Store photos in temp
+    window._formPhotos = [...photos];
+  }
+
+  function renderDynamicFields(category, prefill, a) {
+    if (category === 'Software / License') {
+      return `
+        <div class="form-group"><label class="form-label">License Key</label><input id="f-lic-key" class="form-control" value="${escapeHtml(a.licenseKey || '')}" placeholder="License key"></div>
+        <div class="form-group"><label class="form-label">Software Name</label><input id="f-sw-name" class="form-control" value="${escapeHtml(a.softwareName || '')}" placeholder="Software name"></div>
+        <div class="form-group"><label class="form-label">Version</label><input id="f-sw-ver" class="form-control" value="${escapeHtml(a.softwareVersion || '')}" placeholder="Version"></div>
+        <div class="form-group"><label class="form-label">Vendor</label><input id="f-vendor" class="form-control" value="${escapeHtml(a.vendor || '')}" placeholder="Vendor"></div>
+        <div class="form-group"><label class="form-label">Expiry Date</label><input id="f-expiry" type="date" class="form-control" value="${a.expiryDate || ''}"></div>
+      `;
+    } else if (category === 'Logical Asset') {
+      return `
+        <div class="form-group"><label class="form-label">IP Address</label><input id="f-ip" class="form-control" value="${escapeHtml(a.ipAddress || '')}" placeholder="e.g. 192.168.1.100"></div>
+        <div class="form-group"><label class="form-label">VLAN</label><input id="f-vlan" class="form-control" value="${escapeHtml(a.vlan || '')}" placeholder="VLAN ID"></div>
+        <div class="form-group"><label class="form-label">Logical ID</label><input id="f-logical-id" class="form-control" value="${escapeHtml(a.logicalId || '')}" placeholder="Logical identifier"></div>
+        <div class="form-group"><label class="form-label">Associated Hardware</label><input id="f-hw-ref" class="form-control" value="${escapeHtml(a.hardwareRef || '')}" placeholder="Associated hardware asset tag"></div>
+      `;
+    } else if (category === 'Underground Cable') {
+      return `
+        <div class="form-group"><label class="form-label">Cable Type</label><input id="f-cable-type" class="form-control" value="${escapeHtml(a.cableType || '')}" placeholder="e.g. Single-mode fibre, HDPE conduit"></div>
+        <div class="form-group"><label class="form-label">Route Description</label><textarea id="f-route" class="form-control" placeholder="Route description">${escapeHtml(a.routeDescription || '')}</textarea></div>
+        <div class="form-group"><label class="form-label">Length (m)</label><input id="f-length" type="number" class="form-control" value="${a.lengthM || ''}" placeholder="Cable length in meters"></div>
+        <div class="form-group"><label class="form-label">Termination Point A</label><input id="f-term-a" class="form-control" value="${escapeHtml(a.terminationA || '')}" placeholder="Termination point A"></div>
+        <div class="form-group"><label class="form-label">Termination Point B</label><input id="f-term-b" class="form-control" value="${escapeHtml(a.terminationB || '')}" placeholder="Termination point B"></div>
+        <div class="form-group"><label class="form-label">Burial Depth (m)</label><input id="f-depth" type="number" class="form-control" value="${a.burialDepth || ''}" placeholder="Burial depth in meters"></div>
+      `;
+    }
+    return ''; // Physical Asset has no extra fields
+  }
+
+  function onCategoryChange() {
+    const cat = document.getElementById('f-category').value;
+    document.getElementById('dynamic-fields').innerHTML = renderDynamicFields(cat, {}, {});
+  }
+
+  function onConditionChange() {
+    const val = document.getElementById('f-condition').value;
+    document.getElementById('decom-date-group').style.display = val === 'decommissioned' ? '' : 'none';
+  }
+
+  function addPhoto() {
+    state.captureCallback = function(dataUrl) {
+      if (window._formPhotos.length < 3) window._formPhotos.push(dataUrl);
+      var saved = collectFormValues();
+      state.editAsset = Object.assign({}, state.editAsset, saved);
+      renderAssetForm(Object.assign({}, saved, { photos: window._formPhotos }));
+    };
+    _showPhotoPickerModal();
+  }
+
+  function removePhoto(idx) {
+    window._formPhotos.splice(idx, 1);
+    const saved = collectFormValues();
+    renderAssetForm({ ...saved, photos: window._formPhotos });
+  }
+
+  function collectFormValues() {
+    const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const cat = g('f-category');
+    const base = {
+      assetCategory: cat,
+      companyName: g('f-company'),
+      assetTag: g('f-tag'),
+      serialNumber: g('f-serial'),
+      manufacturer: g('f-mfr'),
+      equipmentType: g('f-type'),
+      equipmentModel: g('f-model'),
+      equipmentDescription: g('f-desc'),
+      condition: g('f-condition'),
+      decommissionedDate: g('f-decom-date'),
+      notes: g('f-notes'),
+    };
+    if (cat === 'Software / License') Object.assign(base, {
+      licenseKey: g('f-lic-key'), softwareName: g('f-sw-name'), softwareVersion: g('f-sw-ver'),
+      vendor: g('f-vendor'), expiryDate: g('f-expiry'),
+    });
+    if (cat === 'Logical Asset') Object.assign(base, {
+      ipAddress: g('f-ip'), vlan: g('f-vlan'), logicalId: g('f-logical-id'), hardwareRef: g('f-hw-ref'),
+    });
+    if (cat === 'Underground Cable') Object.assign(base, {
+      cableType: g('f-cable-type'), routeDescription: g('f-route'), lengthM: g('f-length'),
+      terminationA: g('f-term-a'), terminationB: g('f-term-b'), burialDepth: g('f-depth'),
+    });
+    return base;
+  }
+
+  async function saveAsset() {
+    const vals = collectFormValues();
+    if (!vals.assetTag) { toast('Asset Tag is required', 'error'); return; }
+    if (!vals.serialNumber) { toast('Serial Number is required', 'error'); return; }
+    if (!vals.companyName) { toast('Company Name is required', 'error'); return; }
+    if (!vals.manufacturer) { toast('Manufacturer / Brand is required', 'error'); return; }
+    if (!vals.equipmentType) { toast('Equipment Type is required', 'error'); return; }
+    if (!vals.condition) { toast('Asset Condition is required', 'error'); return; }
+
+    let gps = { lat: null, lng: null };
+    try {
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 3000 }));
+      gps = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) };
+    } catch (_) {}
+
+    const isEdit = !!state.editAsset;
+    const asset = {
+      ...(state.editAsset || {}),
+      id: state.editAsset?.id || uuid(),
+      sessionId: state.session.id,
+      siteName: state.session.siteName,
+      siteAddress: state.session.siteAddress,
+      plaid: state.session.plaid,
+      territory: state.session.territory || '',
+      locationType: state.session.locationType || '',
+      engineerName: state.user.name,
+      engineerEmail: state.user.email,
+      gpsLat: gps.lat,
+      gpsLng: gps.lng,
+      captureTimestamp: state.editAsset?.captureTimestamp || now(),
+      syncStatus: 'pending',
+      photos: window._formPhotos || [],
+      ...vals,
+    };
+
+    await DB.put('assets', asset);
+
+    // Update session asset count
+    const allAssets = await DB.getByIndex('assets', 'sessionId', state.session.id);
+    state.session.assetCount = allAssets.length;
+    await DB.put('sessions', state.session);
+
+    await updateSyncBadge();
+    state.editAsset = null;
+    toast(isEdit ? 'Asset updated!' : 'Asset saved!', 'success');
+    renderCaptureStart();
+  }
+
+  // ── View Asset ────────────────────────────────────────
+
+  async function viewAsset(id, editable) {
+    const a = await DB.get('assets', id);
+    if (!a) return;
+
+    showModal(`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="modal-title" style="margin:0;">${equipIcon(a.equipmentType)} ${escapeHtml(a.assetTag) || 'No Tag'}</div>
+        ${editable ? `<button class="btn btn-outline btn-sm" style="width:auto;" onclick="App.editAsset('${a.id}')">Edit</button>` : ''}
+      </div>
+
+      ${a.photos && a.photos.length > 0 ? `
+        <div class="photo-row" style="margin-bottom:16px;">
+          ${a.photos.map(p => `<img class="photo-thumb" style="width:90px;height:90px;" src="${p}" alt="Photo">`).join('')}
+        </div>
+      ` : ''}
+
+      <table style="width:100%;font-size:13px;border-collapse:collapse;">
+        ${[
+          ['Site', `${a.siteName} (${a.plaid})`],
+          ['Type', a.equipmentType],
+          ['Category', a.assetCategory],
+          ['Brand', a.manufacturer],
+          ['Model', a.equipmentModel],
+          ['Serial No.', a.serialNumber],
+          ['Company', a.companyName],
+          ['Condition', ''],
+          ['Description', a.equipmentDescription],
+          ['Notes', a.notes],
+          ['Captured', fmtDateTime(a.captureTimestamp)],
+          ['Engineer', a.engineerName],
+          ['GPS', a.gpsLat ? `${a.gpsLat}, ${a.gpsLng}` : '—'],
+          ['Sync', ''],
+        ].map(([k, v]) => `
+          <tr style="border-bottom:1px solid var(--slate-100);">
+            <td style="padding:8px 4px;font-weight:700;color:var(--slate-500);white-space:nowrap;vertical-align:top;padding-right:12px;">${k}</td>
+            <td style="padding:8px 4px;color:var(--slate-800);">
+              ${k === 'Condition' ? conditionBadge(a.condition) :
+                k === 'Sync' ? syncBadge(a.syncStatus) :
+                escapeHtml(v) || '—'}
+            </td>
+          </tr>
+        `).join('')}
+      </table>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Close</button>
+        ${editable && a.syncStatus !== 'synced' ? `<button class="btn btn-danger btn-sm" style="flex:0.5;" onclick="App.deleteAsset('${a.id}')">Delete</button>` : ''}
+      </div>
+    `);
+  }
+
+  async function editAsset(id) {
+    const a = await DB.get('assets', id);
+    if (!a) return;
+    state.editAsset = a;
+    window._formPhotos = [...(a.photos || [])];
+    closeModal();
+    renderAssetForm(a);
+  }
+
+  async function deleteAsset(id) {
+    showModal(`
+      <div class="modal-title">🗑️ Delete Asset?</div>
+      <p style="color:var(--slate-600);margin-bottom:16px;">This record will be permanently removed.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="App._doDeleteAsset('${id}')">Delete</button>
+      </div>
+    `);
+  }
+
+  async function _doDeleteAsset(id) {
+    closeModal();
+    await DB.del('assets', id);
+    const allAssets = await DB.getByIndex('assets', 'sessionId', state.session.id);
+    state.session.assetCount = allAssets.length;
+    await DB.put('sessions', state.session);
+    await updateSyncBadge();
+    closeModal();
+    toast('Asset deleted', '');
+    renderCaptureStart();
+  }
+
+  // ── Submit Batch ──────────────────────────────────────
+
+  async function submitBatch() {
+    const sess = state.session;
+    const assets = await DB.getByIndex('assets', 'sessionId', sess.id);
+    if (assets.length === 0) { toast('No assets to submit', 'error'); return; }
+
+    showModal(`
+      <div class="modal-title">✅ Submit Batch for Review</div>
+      <p style="color:var(--slate-600);margin-bottom:16px;">
+        You are about to submit <b>${assets.length} asset record${assets.length > 1 ? 's' : ''}</b>
+        from <b>${escapeHtml(sess.siteName)}</b> to a Site Supervisor for review.
+      </p>
+      <div style="background:var(--slate-100);border-radius:var(--radius-sm);padding:12px;font-size:13px;margin-bottom:16px;">
+        <div><b>PLAID:</b> ${sess.plaid}</div>
+        <div><b>Visit Date:</b> ${fmtDate(sess.visitDate)}</div>
+        <div><b>Site Auditor:</b> ${sess.engineerName}</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="App.confirmSubmit()">Submit →</button>
+      </div>
+    `);
+  }
+
+  async function confirmSubmit() {
+    const sess = state.session;
+    sess.status = 'Submitted';
+    await DB.put('sessions', sess);
+    closeModal();
+
+    if (navigator.onLine) {
+      toast('Submitting to Supervisor…', '');
+      const result = await syncSessionAssets(sess.id);
+      try {
+        await apiPost('submitBatch', {
+          sessionId: sess.id, plaid: sess.plaid, siteName: sess.siteName, siteAddress: sess.siteAddress,
+          visitDate: sess.visitDate, engineerName: sess.engineerName, engineerEmail: sess.engineerEmail,
+          assetCount: sess.assetCount,
+          territory: sess.territory || '', locationType: sess.locationType || '',
+          securityAssessment: sess.securityAssessment || '', siteEngineerOnSite: sess.siteEngineerOnSite || '',
+          contactNo: sess.contactNo || ''
+        });
+        toast(`Batch submitted! (${result.ok}/${result.total} records synced)`, 'success');
+      } catch (err) {
+        toast('Batch saved — will finish syncing once back online', 'error');
+      }
+    } else {
+      toast('Saved locally — will sync to server once back online', 'error');
+    }
+
+    await updateSyncBadge();
+    state.session = null;
+    renderDashboard();
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'dashboard'));
+  }
+
+  // ── My Assets ─────────────────────────────────────────
+
+  async function renderMyAssets() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const mySessions = sessions.filter(s => s.engineerEmail === state.user.email);
+    await pullRemoteAllAssets();
+    const assets = await DB.getAll('assets');
+    const myAssets = assets.filter(a => mySessions.some(s => s.id === a.sessionId));
+    myAssets.sort((a, b) => new Date(b.captureTimestamp) - new Date(a.captureTimestamp));
+
+    document.getElementById('view').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px;">
+        <span class="section-title" style="padding:0;">📋 My Records</span>
+        <span style="font-size:13px;color:var(--slate-500);">${myAssets.length} total</span>
+      </div>
+
+      ${myAssets.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📦</div>
+          <p>No assets captured yet.</p>
+        </div>
+      ` : `
+        <div style="background:var(--white);border-top:1px solid var(--slate-200);">
+          ${myAssets.map(a => assetListItem(a, a.syncStatus !== 'synced')).join('')}
+        </div>
+      `}
+    `;
+  }
+
+  // ── Sync (Phase 2 backend — the "mail clerk") ─────────
+
+  async function apiPost(action, payload) {
+    const res = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, payload })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  function assetToPayload(a) {
+    return {
+      recordId: a.id,
+      sessionId: a.sessionId,
+      plaid: a.plaid,
+      siteName: a.siteName,
+      siteAddress: a.siteAddress,
+      territory: a.territory || '',
+      locationType: a.locationType || '',
+      companyName: a.companyName,
+      assetTag: a.assetTag,
+      serialNumber: a.serialNumber,
+      manufacturer: a.manufacturer,
+      equipmentType: a.equipmentType,
+      equipmentModel: a.equipmentModel,
+      description: a.equipmentDescription,
+      assetCategory: a.assetCategory,
+      condition: a.condition,
+      decommissionedDate: a.decommissionedDate || '',
+      captureDate: a.captureTimestamp,
+      engineerName: a.engineerName,
+      engineerEmail: a.engineerEmail,
+      gpsLat: a.gpsLat || '',
+      gpsLng: a.gpsLng || '',
+      photos: a.photos || [],
+      remarks: a.notes || '',
+    };
+  }
+
+  async function syncAsset(a) {
+    await apiPost('submitAsset', assetToPayload(a));
+    a.syncStatus = 'synced';
+    await DB.put('assets', a);
+  }
+
+  async function syncSessionAssets(sessionId) {
+    const assets = await DB.getByIndex('assets', 'sessionId', sessionId);
+    let ok = 0, fail = 0;
+    for (const a of assets) {
+      if (a.syncStatus === 'synced') { ok++; continue; }
+      try { await syncAsset(a); ok++; }
+      catch (err) { fail++; }
+    }
+    return { ok, fail, total: assets.length };
+  }
+
+  // Pull the latest batches/assets from the Sheet, so Supervisor/Accounting
+  // can see work submitted from a *different* phone or computer, not just
+  // whatever is stored locally on this device. Safe no-op when offline —
+  // whatever was cached from the last successful pull is shown instead.
+  async function pullRemoteSessions() {
+    if (!navigator.onLine) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}?action=getSessions`);
+      const remote = await res.json();
+      if (!Array.isArray(remote)) return;
+      for (const rs of remote) {
+        const local = await DB.get('sessions', rs.id);
+        await DB.put('sessions', Object.assign({}, local || {}, rs));
+      }
+    } catch (err) { /* offline or unreachable — keep showing local cache */ }
+  }
+
+  async function pullRemoteAssets(sessionId) {
+    if (!navigator.onLine) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}?action=getAssetsBySession&sessionId=${encodeURIComponent(sessionId)}`);
+      const remote = await res.json();
+      if (!Array.isArray(remote)) return;
+      for (const ra of remote) {
+        await DB.put('assets', ra);
+      }
+    } catch (err) { /* offline or unreachable — keep showing local cache */ }
+  }
+
+  // Faster version for screens that need EVERY asset (dashboard, my
+  // records, accounting) — one network call instead of one per session.
+  async function pullRemoteAllAssets() {
+    if (!navigator.onLine) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}?action=getAllAssets`);
+      const remote = await res.json();
+      if (!Array.isArray(remote)) return;
+      for (const ra of remote) {
+        await DB.put('assets', ra);
+      }
+    } catch (err) { /* offline or unreachable — keep showing local cache */ }
+  }
+
+  async function syncAll() {
+    if (!navigator.onLine) { toast('You are offline — will sync when connected', 'error'); return; }
+    toast('Syncing records...', '');
+    const pending = await DB.getByIndex('assets', 'syncStatus', 'pending');
+    let ok = 0, fail = 0;
+    for (const a of pending) {
+      try { await syncAsset(a); ok++; }
+      catch (err) { fail++; }
+    }
+    await updateSyncBadge();
+    if (fail === 0) {
+      toast(`${ok} record${ok === 1 ? '' : 's'} synced!`, 'success');
+    } else {
+      toast(`${ok} synced, ${fail} failed — will retry later`, 'error');
+    }
+    if (state.view === 'dashboard') renderDashboard();
+    if (state.view === 'capture') renderCaptureStart();
+  }
+
+  // ── Supervisor View ───────────────────────────────────
+
+  async function renderSupervisor() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const pending = sessions.filter(s => s.status === 'Submitted' || s.status === 'Under Review');
+    const recentApproved = sessions.filter(s => s.status === 'Approved').slice(0, 3);
+
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">👁️ Supervisor Dashboard</div>
+
+      <div class="stat-grid" style="padding: 0 16px 12px;">
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--orange)">${pending.length}</div>
+          <div class="stat-label">Pending Review</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--green)">${sessions.filter(s => s.status === 'Approved').length}</div>
+          <div class="stat-label">Approved</div>
+        </div>
+      </div>
+
+      ${pending.length > 0 ? `
+        <div class="card">
+          <div class="card-title">⏳ Awaiting Review</div>
+          ${pending.map(s => batchCard(s, true)).join('')}
+        </div>
+      ` : `
+        <div class="empty-state">
+          <div class="empty-icon">✅</div>
+          <p>No batches awaiting review.</p>
+        </div>
+      `}
+
+      ${recentApproved.length > 0 ? `
+        <div class="card">
+          <div class="card-title">Recent Approvals</div>
+          ${recentApproved.map(s => batchCard(s, false)).join('')}
+        </div>
+      ` : ''}
+    `;
+  }
+
+  async function renderBatches() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    sessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">📁 All Batches</div>
+      ${sessions.length === 0 ? `<div class="empty-state"><div class="empty-icon">📁</div><p>No batches yet.</p></div>` :
+        `<div style="background:var(--white);border-top:1px solid var(--slate-200);">
+          ${sessions.map(s => batchListItem(s)).join('')}
+        </div>`}
+    `;
+  }
+
+  function batchCard(s, interactive) {
+    return `
+      <div style="padding: 14px 0; border-bottom: 1px solid var(--slate-100);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-weight:700;font-size:15px;">${escapeHtml(s.siteName)}</div>
+            <div style="font-size:12px;color:var(--slate-500);margin-top:3px;">${escapeHtml(s.plaid)} · ${fmtDate(s.visitDate)}</div>
+            <div style="font-size:12px;color:var(--slate-500);">by ${escapeHtml(s.engineerName)}</div>
+            <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+              ${statusBadge(s.status)}
+              <span style="font-size:12px;color:var(--slate-400);">${s.assetCount || 0} assets</span>
+            </div>
+          </div>
+        </div>
+        ${interactive ? `
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-success btn-sm" style="flex:1;" onclick="App.approveBatch('${s.id}')">✅ Approve</button>
+            <button class="btn btn-danger btn-sm" style="flex:1;" onclick="App.returnBatch('${s.id}')">↩️ Return</button>
+            <button class="btn btn-ghost btn-sm" style="flex:0.8;" onclick="App.reviewBatch('${s.id}')">View</button>
+          </div>
+        ` : `
+          <div style="margin-top:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="App.reviewBatch('${s.id}')">View Batch →</button>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  function batchListItem(s) {
+    return `
+      <button class="asset-item" onclick="App.reviewBatch('${s.id}')" style="width:100%;border:none;text-align:left;">
+        <div class="asset-icon">📁</div>
+        <div class="asset-info">
+          <div class="asset-tag">${escapeHtml(s.siteName)}</div>
+          <div class="asset-type">${s.plaid} · ${fmtDate(s.visitDate)}</div>
+          <div style="margin-top:4px;">${statusBadge(s.status)}</div>
+        </div>
+        <span class="asset-chevron">›</span>
+      </button>
+    `;
+  }
+
+  async function reviewBatch(sessionId) {
+    state.reviewFrom = state.view;
+    await pullRemoteAssets(sessionId);
+    const sess = await DB.get('sessions', sessionId);
+    const assets = await DB.getByIndex('assets', 'sessionId', sessionId);
+    const role = state.user.role;
+    const canApprove = role === 'supervisor' && (sess.status === 'Submitted' || sess.status === 'Under Review');
+
+    document.getElementById('view').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 8px;">
+        <button onclick="App.goBackFromReview()" style="background:none;border:none;font-size:22px;cursor:pointer;">‹</button>
+        <span style="font-size:18px;font-weight:700;">Batch Review</span>
+      </div>
+
+      <div class="card" style="background:var(--slate-900);color:white;">
+        <div style="font-weight:700;font-size:16px;">${escapeHtml(sess.siteName)}</div>
+        <div style="font-size:12px;color:var(--slate-400);margin-top:4px;">${sess.plaid} · ${fmtDate(sess.visitDate)}</div>
+        <div style="font-size:12px;color:var(--slate-400);">Engineer: ${escapeHtml(sess.engineerName)}</div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          ${statusBadge(sess.status)}
+          <span style="font-size:13px;color:var(--slate-300);">${assets.length} assets</span>
+        </div>
+        ${sess.supervisorName ? `<div style="font-size:12px;color:var(--slate-400);margin-top:6px;">Approved by ${sess.supervisorName} on ${fmtDate(sess.approvalDate)}</div>` : ''}
+        ${sess.supervisorComment ? `<div style="font-size:12px;color:var(--orange);margin-top:6px;">💬 ${escapeHtml(sess.supervisorComment)}</div>` : ''}
+      </div>
+
+      ${canApprove ? `
+        <div style="padding: 0 16px 12px; display:flex;gap:10px;">
+          <button class="btn btn-success" style="flex:1;" onclick="App.approveBatch('${sessionId}')">✅ Approve All</button>
+          <button class="btn btn-danger" style="flex:1;" onclick="App.returnBatch('${sessionId}')">↩️ Return</button>
+        </div>
+      ` : ''}
+
+      <div style="background:var(--white);border-top:1px solid var(--slate-200);">
+        <div style="padding:12px 16px;font-size:13px;font-weight:700;color:var(--slate-500);text-transform:uppercase;letter-spacing:.5px;">Assets (${assets.length})</div>
+        ${assets.map(a => assetListItem(a, false)).join('')}
+      </div>
+    `;
+
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  }
+
+  async function approveBatch(sessionId) {
+    const sess = await DB.get('sessions', sessionId);
+    sess.status = 'Approved';
+    sess.supervisorName = state.user.name;
+    sess.supervisorEmail = state.user.email;
+    sess.approvalDate = now();
+    await DB.put('sessions', sess);
+
+    if (navigator.onLine) {
+      try {
+        await apiPost('approveBatch', { sessionId: sess.id, supervisorName: sess.supervisorName });
+      } catch (err) { /* saved locally; will reconcile once online again */ }
+    }
+
+    toast('Batch approved!', 'success');
+    renderSupervisor();
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'supervisor'));
+  }
+
+  function returnBatch(sessionId) {
+    showModal(`
+      <div class="modal-title">↩️ Return Batch to Site Auditor</div>
+      <div class="form-group">
+        <label class="form-label">Comments / Reason for Return <span class="req">*</span></label>
+        <textarea id="return-comment" class="form-control" placeholder="Explain what needs to be corrected..." rows="4"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="App.confirmReturn('${sessionId}')">Return Batch</button>
+      </div>
+    `);
+  }
+
+  function goBackFromReview() {
+    const role = state.user.role;
+    const fallback = role === 'supervisor' ? 'supervisor' : role === 'accounting' ? 'accounting' : 'batches';
+    navigate(state.reviewFrom || fallback);
+  }
+
+  async function confirmReturn(sessionId) {
+    const comment = document.getElementById('return-comment').value.trim();
+    if (!comment) { toast('Please provide a reason for return', 'error'); return; }
+    const sess = await DB.get('sessions', sessionId);
+    sess.status = 'Returned';
+    sess.supervisorComment = comment;
+    await DB.put('sessions', sess);
+
+    if (navigator.onLine) {
+      try {
+        await apiPost('returnBatch', { sessionId: sess.id, supervisorComment: comment });
+      } catch (err) { /* saved locally; will reconcile once online again */ }
+    }
+
+    closeModal();
+    toast('Batch returned to site auditor', '');
+    renderSupervisor();
+  }
+
+  // ── Accounting View ───────────────────────────────────
+
+  async function renderAccounting() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const approved = sessions.filter(s => s.status === 'Approved');
+    await pullRemoteAllAssets();
+    const assets = await DB.getAll('assets');
+    const approvedAssets = assets.filter(a => approved.some(s => s.id === a.sessionId));
+
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">📊 Accounting Dashboard</div>
+
+      <div class="stat-grid" style="padding: 0 16px 12px;">
+        <div class="stat-box">
+          <div class="stat-num">${approved.length}</div>
+          <div class="stat-label">Approved Batches</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">${approvedAssets.length}</div>
+          <div class="stat-label">Total Assets</div>
+        </div>
+      </div>
+
+      ${approved.length > 0 ? `
+        <div style="padding: 0 16px 12px;">
+          <button class="btn btn-primary" onclick="App.exportAll()">📥 Export All Approved (CSV)</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Approved Batches</div>
+          ${approved.sort((a, b) => new Date(b.approvalDate) - new Date(a.approvalDate)).map(s => `
+            <div style="padding:12px 0;border-bottom:1px solid var(--slate-100);">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div style="font-weight:700;">${escapeHtml(s.siteName)}</div>
+                  <div style="font-size:12px;color:var(--slate-500);">${s.plaid} · ${fmtDate(s.visitDate)}</div>
+                  <div style="font-size:12px;color:var(--slate-500);">Approved by ${escapeHtml(s.supervisorName || '—')} on ${fmtDate(s.approvalDate)}</div>
+                  <div style="font-size:12px;color:var(--slate-400);margin-top:2px;">${s.assetCount || 0} assets</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="width:auto;margin-top:4px;" onclick="App.exportBatch('${s.id}')">CSV</button>
+              </div>
+              <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="App.reviewBatch('${s.id}')">View Assets →</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>No approved batches yet.<br>Batches appear here after supervisor approval.</p>
+        </div>
+      `}
+    `;
+  }
+
+  async function renderExport() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const approved = sessions.filter(s => s.status === 'Approved');
+
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">📤 Export Data</div>
+      <div class="card">
+        <div class="card-title">ERP-Ready CSV Export</div>
+        <p style="font-size:14px;color:var(--slate-600);margin-bottom:16px;">
+          Export approved asset records in ERP-compatible CSV format (27 columns, UTF-8, ISO 8601 dates).
+        </p>
+        <button class="btn btn-primary" onclick="App.exportAll()" ${approved.length === 0 ? 'disabled' : ''}>
+          📥 Export All Approved Batches (${approved.length})
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-title">Export by Batch</div>
+        ${approved.length === 0 ? '<p style="color:var(--slate-400);font-size:14px;">No approved batches available.</p>' :
+          approved.map(s => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--slate-100);">
+              <div>
+                <div style="font-weight:700;font-size:14px;">${escapeHtml(s.siteName)}</div>
+                <div style="font-size:12px;color:var(--slate-500);">${s.plaid} · ${s.assetCount || 0} assets</div>
+              </div>
+              <button class="btn btn-outline btn-sm" style="width:auto;" onclick="App.exportBatch('${s.id}')">CSV</button>
+            </div>
+          `).join('')}
+      </div>
+    `;
+  }
+
+  async function exportAll() {
+    await pullRemoteSessions();
+    const sessions = await DB.getAll('sessions');
+    const approved = sessions.filter(s => s.status === 'Approved');
+    await pullRemoteAllAssets();
+    const assets = await DB.getAll('assets');
+    const approvedAssets = assets.filter(a => approved.some(s => s.id === a.sessionId));
+    if (approvedAssets.length === 0) { toast('No approved assets to export', 'error'); return; }
+    downloadCSV(approvedAssets, sessions, 'telecom_assets_all.csv');
+  }
+
+  async function exportBatch(sessionId) {
+    await pullRemoteAssets(sessionId);
+    const sess = await DB.get('sessions', sessionId);
+    const assets = await DB.getByIndex('assets', 'sessionId', sessionId);
+    if (assets.length === 0) { toast('No assets in this batch', 'error'); return; }
+    downloadCSV(assets, [sess], `telecom_assets_${sess.plaid}_${sess.visitDate}.csv`);
+  }
+
+  function downloadCSV(assets, sessions, filename) {
+    const headers = [
+      'RECORD_ID','PLAID','SITE_NAME','SITE_ADDRESS','COMPANY_NAME','ASSET_TAG','SERIAL_NUMBER',
+      'MANUFACTURER','EQUIPMENT_TYPE','EQUIPMENT_MODEL','DESCRIPTION','ASSET_CATEGORY','CONDITION',
+      'DECOMMISSIONED_DATE','CAPTURE_DATE','ENGINEER_NAME','ENGINEER_EMAIL','GPS_LAT','GPS_LNG',
+      'PHOTO_URL_1','PHOTO_URL_2','PHOTO_URL_3','SUPERVISOR_NAME','APPROVAL_DATE','REMARKS',
+      'ACCOUNTING_DISPOSITION','BOOKING_REFERENCE','TERRITORY','LOCATION_TYPE'
+    ];
+
+    const rows = assets.map(a => {
+      const sess = sessions.find(s => s.id === a.sessionId) || {};
+      return [
+        a.id, a.plaid, a.siteName, a.siteAddress, a.companyName, a.assetTag, a.serialNumber,
+        a.manufacturer, a.equipmentType, a.equipmentModel, a.equipmentDescription, a.assetCategory,
+        a.condition, a.decommissionedDate || '',
+        a.captureTimestamp ? a.captureTimestamp.replace('T',' ').substring(0,19) : '',
+        a.engineerName, a.engineerEmail, a.gpsLat || '', a.gpsLng || '',
+        (a.photos && a.photos[0]) || '',
+        (a.photos && a.photos[1]) || '',
+        (a.photos && a.photos[2]) || '',
+        sess.supervisorName || '',
+        sess.approvalDate ? sess.approvalDate.replace('T',' ').substring(0,19) : '',
+        a.notes || '', '', '',
+        a.territory || '', a.locationType || '',
+      ].map(v => `"${String(v || '').replace(/"/g, '""')}"`);
+    });
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    toast(`Exported ${assets.length} records`, 'success');
+  }
+
+  // ── Admin View ────────────────────────────────────────
+
+  function renderAdmin() {
+    document.getElementById('view').innerHTML = `
+      <div class="section-title">⚙️ IT Administration</div>
+      <div class="card">
+        <div class="card-title">Reference Data</div>
+        <button class="btn btn-outline" style="margin-bottom:10px;" onclick="App.navigate('admin-equip')">🗂️ Manage Equipment Types</button>
+        <button class="btn btn-outline" style="margin-bottom:10px;" onclick="App.navigate('admin-plaids')">📍 Manage PLAID List</button>
+        <button class="btn btn-outline" onclick="App.navigate('admin-users')">👥 Manage Users</button>
+      </div>
+      <div class="card">
+        <div class="card-title">System Info</div>
+        <table style="width:100%;font-size:13px;">
+          <tr><td style="padding:6px 0;color:var(--slate-500);">App Version</td><td style="font-weight:600;">1.5.0</td></tr>
+          <tr><td style="padding:6px 0;color:var(--slate-500);">Storage</td><td style="font-weight:600;">IndexedDB (Local)</td></tr>
+          <tr><td style="padding:6px 0;color:var(--slate-500);">OCR Engine</td><td style="font-weight:600;">Tesseract.js 5 (English)</td></tr>
+          <tr><td style="padding:6px 0;color:var(--slate-500);">PWA</td><td style="font-weight:600;">Service Worker Active</td></tr>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderAdminEquip() {
+    document.getElementById('view').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 8px;">
+        <button onclick="App.navigate('admin')" style="background:none;border:none;font-size:22px;cursor:pointer;">‹</button>
+        <span style="font-size:18px;font-weight:700;">Equipment Types</span>
+      </div>
+      <div style="background:var(--white);border-top:1px solid var(--slate-200);">
+        ${EQUIPMENT_TYPES.map(t => `
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--slate-100);">
+            <div style="font-size:24px;">${t.icon}</div>
+            <div style="flex:1;">
+              <div style="font-weight:700;font-size:14px;">${t.id}. ${t.name}</div>
+              <div style="font-size:12px;color:var(--slate-500);">${t.desc || ''}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="padding:16px;"><div style="background:var(--sky-light);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:#0369a1;">This list is live from Google Sheets. To add, edit, or retire an equipment type, update the EquipmentTypes tab directly in the Sheet.</div></div>
+    `;
+  }
+
+  function renderAdminPlaids() {
+    document.getElementById('view').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 8px;">
+        <button onclick="App.navigate('admin')" style="background:none;border:none;font-size:22px;cursor:pointer;">‹</button>
+        <span style="font-size:18px;font-weight:700;">PLAID Reference List</span>
+      </div>
+      <div style="background:var(--white);border-top:1px solid var(--slate-200);">
+        ${SAMPLE_SITES.map(s => `
+          <div style="padding:14px 16px;border-bottom:1px solid var(--slate-100);">
+            <div style="font-weight:700;font-size:14px;">${s.plaid}</div>
+            <div style="font-size:13px;color:var(--slate-700);">${s.name}</div>
+            <div style="font-size:12px;color:var(--slate-500);">${s.address}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="padding:16px;"><div style="background:var(--sky-light);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:#0369a1;">This list is live from Google Sheets. To add, edit, or retire a site, update the PLAIDs tab directly in the Sheet.</div></div>
+    `;
+  }
+
+  async function renderAdminUsers() {
+    document.getElementById('view').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 8px;">
+        <button onclick="App.navigate('admin')" style="background:none;border:none;font-size:22px;cursor:pointer;">‹</button>
+        <span style="font-size:18px;font-weight:700;">Users</span>
+      </div>
+      <div id="admin-users-list" style="background:var(--white);border-top:1px solid var(--slate-200);">
+        <div style="padding:16px;color:var(--slate-500);font-size:13px;">Loading…</div>
+      </div>
+      <div style="padding:16px;"><div style="background:var(--sky-light);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:#0369a1;">This list is live from Google Sheets. To add, edit, or deactivate a user, update the Users tab directly in the Sheet.</div></div>
+    `;
+
+    const listEl = document.getElementById('admin-users-list');
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+      const res = await fetch(`${API_BASE_URL}?action=getUsers`);
+      const users = await res.json();
+      if (!Array.isArray(users) || !users.length) {
+        listEl.innerHTML = `<div style="padding:16px;color:var(--slate-500);font-size:13px;">No users found.</div>`;
+        return;
+      }
+      listEl.innerHTML = users.map(u => {
+        const isActive = String(u.active).toLowerCase() === 'yes';
+        return `
+          <div style="padding:14px 16px;border-bottom:1px solid var(--slate-100);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <div style="font-weight:700;font-size:14px;">${escapeHtml(u.name || '')}</div>
+              <span style="font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;background:${isActive ? '#dcfce7' : '#fee2e2'};color:${isActive ? '#166534' : '#991b1b'};">${isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div style="font-size:13px;color:var(--slate-700);">${escapeHtml(u.email || '')}</div>
+            <div style="font-size:12px;color:var(--slate-500);">${escapeHtml(roleDisplayName(String(u.role || '').toLowerCase()))}${u.supervisorEmail ? ' · reports to ' + escapeHtml(u.supervisorEmail) : ''}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      listEl.innerHTML = `<div style="padding:16px;color:var(--slate-500);font-size:13px;">Could not load the user list — check your internet connection.</div>`;
+    }
+  }
+
+  // ── Modal ─────────────────────────────────────────────
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('active');
+  }
+
+  // ── Public API ────────────────────────────────────────
+
+  return {
+    login, logout, navigate,
+    startNewSession, onSiteOrPlaidInput, createSession, openSession,
+    renderCaptureStart, changeSession, selectSession,
+    newAssetPhoto, newAssetManual, addPhoto, removePhoto,
+    onCategoryChange, onConditionChange, saveAsset,
+    viewAsset, editAsset, deleteAsset, _doDeleteAsset,
+    submitBatch, confirmSubmit,
+    renderMyAssets, syncAll,
+    renderSupervisor, renderBatches, reviewBatch,
+    approveBatch, returnBatch, confirmReturn, goBackFromReview,
+    renderAccounting, renderExport, exportAll, exportBatch,
+    renderAdmin, renderAdminEquip, renderAdminPlaids, renderAdminUsers,
+    closeModal,
+    capturePhoto, closeCamera, switchCamera,
+    _onPhotoFileSelected,
+    attemptLogin, tryAutoLogin, loadReferenceData,
+    openBarcodeScanner, closeBarcodeScanner,
+  };
+
+})();
+
+// ── Expose App globally so inline onclick handlers work on all browsers ──
+window.App = App;
+
+// ── Service Worker Registration ──────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
+
+// ── Wire up static buttons via addEventListener (most reliable on Android) ──
+document.addEventListener('DOMContentLoaded', function() {
+  // Email login form
+  var loginBtn = document.getElementById('btn-login-submit');
+  var loginEmailInput = document.getElementById('login-email');
+  if (loginBtn && loginEmailInput) {
+    loginBtn.addEventListener('click', function() { App.attemptLogin(loginEmailInput.value); });
+    loginEmailInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); App.attemptLogin(loginEmailInput.value); }
+    });
+  }
+
+  // If someone already signed in successfully before, skip straight back into the app
+  App.tryAutoLogin();
+
+  // File inputs — fires when user selects/takes a photo
+  ['_cam-file', '_gal-file'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() {
+      var file = this.files[0];
+      this.value = '';
+      App._onPhotoFileSelected(file);
+    });
+  });
+
+  // Live webcam controls (desktop)
+  var btnClose   = document.getElementById('btn-close-camera');
+  var btnCapture = document.getElementById('btn-capture-live');
+  var btnSwitch  = document.getElementById('btn-switch-camera');
+  if (btnClose)   btnClose.addEventListener('click',   function() { App.closeCamera(); });
+  if (btnCapture) btnCapture.addEventListener('click', function() { App.capturePhoto(); });
+  if (btnSwitch)  btnSwitch.addEventListener('click',  function() { App.switchCamera(); });
+
+  // Modal overlay background tap to close
+  document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) App.closeModal();
+  });
+});
+
+</script>
+</body>
+</html>
