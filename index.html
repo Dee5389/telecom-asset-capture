@@ -1171,10 +1171,23 @@ const App = (() => {
       const statusEl = document.getElementById('barcode-status');
       if (statusEl) statusEl.textContent = 'Point your camera at the barcode…';
 
-      _barcodeScannerInstance = new Html5Qrcode('barcode-reader');
+      _barcodeScannerInstance = new Html5Qrcode('barcode-reader', {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      });
       await _barcodeScannerInstance.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 120 } },
+        { fps: 15, qrbox: { width: 280, height: 120 }, disableFlip: true },
         (decodedText) => {
           const input = document.getElementById(_barcodeTargetField);
           if (input) {
@@ -1331,8 +1344,8 @@ const App = (() => {
         <div class="form-group">
           <label class="form-label">Asset Tag Number <span class="req">*</span></label>
           <div style="display:flex;gap:8px;">
-            <input id="f-tag" class="form-control" value="${escapeHtml(prefill.assetTag || a.assetTag || '')}" placeholder="e.g. GT-00012345" style="flex:1;">
-            <button type="button" class="btn btn-outline" style="padding:0 14px;white-space:nowrap;" onclick="App.openBarcodeScanner('f-tag')">📷 Scan</button>
+            <input id="f-tag" class="form-control" value="${escapeHtml(prefill.assetTag || a.assetTag || '')}" placeholder="e.g. GT-00012345" style="flex:1;min-width:0;font-size:16px;padding:12px 14px;">
+            <button type="button" class="btn btn-outline" title="Scan barcode" style="flex:0 0 auto;width:44px;padding:0;font-size:18px;" onclick="App.openBarcodeScanner('f-tag')">📷</button>
           </div>
         </div>
 
@@ -1340,8 +1353,8 @@ const App = (() => {
         <div class="form-group">
           <label class="form-label">Serial Number <span class="req">*</span></label>
           <div style="display:flex;gap:8px;">
-            <input id="f-serial" class="form-control" value="${escapeHtml(prefill.serialNumber || a.serialNumber || '')}" placeholder="Manufacturer serial number" style="flex:1;">
-            <button type="button" class="btn btn-outline" style="padding:0 14px;white-space:nowrap;" onclick="App.openBarcodeScanner('f-serial')">📷 Scan</button>
+            <input id="f-serial" class="form-control" value="${escapeHtml(prefill.serialNumber || a.serialNumber || '')}" placeholder="Manufacturer serial number" style="flex:1;min-width:0;font-size:16px;padding:12px 14px;">
+            <button type="button" class="btn btn-outline" title="Scan barcode" style="flex:0 0 auto;width:44px;padding:0;font-size:18px;" onclick="App.openBarcodeScanner('f-serial')">📷</button>
           </div>
         </div>
 
